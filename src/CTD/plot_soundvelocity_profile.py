@@ -3,13 +3,20 @@ import numpy as np
 from osgeo import gdal
 import pyproj
 import folium
-import mplleaflet
+import sys, os
+
+# # specify the path of the folder that contains the data files
+# data_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', ..', 'data/')
+# print(data_folder)
+#
+# # add the data folder to the system path
+# sys.path.insert(1, data_folder)
 
 # Data loading
-data_file1 = "AE2008_PostDeployment_Cast1_deriv.cnv"
-data_file2 = "AE2008_PostDeployment_Cast2_deriv.cnv"
-data_file4 = "AE2008_TestCast1_deriv.cnv"
-data_file3 = "HS1382C1_deriv.cnv"
+data_file1 = "../../data/AE2008_CTD/AE2008_PostDeployment_Cast1_deriv.cnv"
+data_file2 = "../../data/AE2008_CTD/AE2008_PostDeployment_Cast2_deriv.cnv"
+data_file4 = "../../data/AE2008_CTD/AE2008_TestCast1_deriv.cnv"
+data_file3 = "../../data/AE2008_CTD/HS1382C1_deriv.cnv"
 data1 = np.loadtxt(data_file1,skiprows=348)
 data2 = np.loadtxt(data_file2,skiprows=348)
 data3 = np.loadtxt(data_file3,skiprows=348)
@@ -184,4 +191,4 @@ for lat, lon, label in zip(lat, lon, labels):
     folium.Marker(location=[lat, lon], tooltip=label).add_to(m)
 
 #Save Map and open with a webbrowser
-m.save('map.html')
+# m.save('map.html')
