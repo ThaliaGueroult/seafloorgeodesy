@@ -196,3 +196,12 @@ if __name__ == '__main__' :
 
     plot_sal_temp(salinity_cast2,temp_cast2,depth)
     plot_sv(sv,depth)
+
+    data2 = np.loadtxt(data_file2,skiprows=348)
+    sv_delgrosso_cast2 = data2[:,21]
+    depths_cast2 = -data2[:,0]
+    fig, ax = plt.subplots(figsize=(16, 10))
+    ax.plot(sv_delgrosso_cast2,depths_cast2,label='Cast 2')
+    ax.plot(sv,depth,label="GDEM")
+    ax.legend()
+    plt.show()

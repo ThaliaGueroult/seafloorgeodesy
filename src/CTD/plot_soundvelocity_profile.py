@@ -5,12 +5,6 @@ import pyproj
 import folium
 import sys, os
 
-# # specify the path of the folder that contains the data files
-# data_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', ..', 'data/')
-# print(data_folder)
-#
-# # add the data folder to the system path
-# sys.path.insert(1, data_folder)
 
 # Data loading
 data_file1 = "../../data/AE2008_CTD/AE2008_PostDeployment_Cast1_deriv.cnv"
