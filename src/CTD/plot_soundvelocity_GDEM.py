@@ -68,7 +68,7 @@ def plot_map_sal_or_temp(i,vect,lat,lon,depth):
     plt.show()
 
 '''
-See source for algorithm choice
+See source for model choice sound Velocity
 Source : Pike, J. M. and F. L. Beiboer, A comparison between algorithms for the speed of sound in seawater,
 The Hydrographic Society, Special Publication, 34, 1993.
 https://blog.seabird.com/ufaqs/which-algorithm-for-calculating-sound-velocity-sv-from-ctd-data-should-i-use/
@@ -105,6 +105,36 @@ def soundspeed(S,T,D):
         ssp = C000 + DCT + DCS + DCP + DCSTP
         return ssp
 
+def soundspeed_chen(S,T,D):
+    P0 = D
+    # This is copied directly from the UNESCO algorithms.
+    # CHECKVALUE: SVEL=1731.995 M/S, S=40 (IPSS-78),T=40 DEG C,P=10000 DBAR
+    # SCALE PRESSURE TO BARS
+    P = P0 / 10.0
+    SR = np.sqrt(np.abs(S))
+    # S**2 TERM.
+    D = 1.727e-3 - 7.9836e-6 * P
+    # S**3/2 TERM.
+    B1 = 7.3637e-5 + 1.7945e-7 * T
+    B0 = -1.922e-2 - 4.42e-5 * T
+    B = B0 + B1 * P
+    # S**1 TERM.
+    A3 = (-3.389e-13 * T + 6.649e-12) * T + 1.100e-10
+    A2 = ((7.988e-12 * T - 1.6002e-10) * T + 9.1041e-9) * T - 3.9064e-7
+    A1 = (((-2.0122e-10 * T + 1.0507e-8) * T - 6.4885e-8) * T - 1.2580e-5) * T + 9.4742e-5
+    A0 = (((-3.21e-8 * T + 2.006e-6) * T + 7.164e-5) * T - 1.262e-2) * T + 1.389
+    A = ((A3 * P + A2) * P + A1) * P + A0
+    # S**0 TERM.
+    C3 = (-2.3643e-12 * T + 3.8504e-10) * T - 9.7729e-9
+    C2 = (((1.0405e-12 * T - 2.5335e-10) * T + 2.5974e-8) * T - 1.7107e-6) * T + 3.1260e-5
+    C1 = (((-6.1185e-10 * T + 1.3621e-7) * T - 8.1788e-6) * T + 6.8982e-4) * T + 0.153563
+    C0 = ((((3.1464e-9 * T - 1.47800e-6) * T + 3.3420e-4) * T - 5.80852e-2) * T+ 5.03711) * T + 1402.388
+    C = ((C3 * P + C2) * P + C1) * P + C0
+    # SOUND SPEED RETURN.
+    ssp = C + (A + B * SR + D * S) * S
+    return ssp
+
+
 def get_indexlatlon(lat_test,lon_test,lat,lon):
     '''
     Allows to get the indexs of the closest lat and lon to compare
@@ -130,6 +160,7 @@ def diff_plot_soundvelocity(depth,sv,c,sv_delgrosso_cast2,depths_cast2):
     diff_bm_gdem = sv_delgrosso_cast2[:np.argmin(depths_cast2)] - sv_interp
     diff_bm_munk = sv_delgrosso_cast2[:np.argmin(depths_cast2)] - c_interp
     diff_gdem_munk = sv_interp - c_interp
+    print(np.mean(diff_bm_gdem))
     # Plot the differences
     fig, ax = plt.subplots(figsize=(16, 10))
     ax.plot(depths_cast2[:np.argmin(depths_cast2)],diff_bm_gdem,label='Bermuda - GDEM')
@@ -184,7 +215,7 @@ if __name__ == '__main__' :
 
     #convert depth into pressure in dB and compute soundspeed with Chen-Millero equation
     pressure=swpressure(depth*-1,lat_cast2)
-    sv=soundspeed(salinity_cast2,temp_cast2,pressure[:,0])
+    sv=soundspeed_chen(salinity_cast2,temp_cast2,pressure[:,0])
 
     plot_map_sal_or_temp(1,salinity,lat,lon,0)
 
