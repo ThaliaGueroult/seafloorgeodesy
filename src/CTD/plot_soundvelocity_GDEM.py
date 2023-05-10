@@ -15,6 +15,11 @@ def lon_360to180(lon):
     return(lon)
 
 def plot_sal_temp(sal,temp,depth):
+    '''
+    This function plot the map of salinity or temperature at a certain depth
+    depth is given is GDEM data and is define on 78 levels :
+
+    '''
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))
     # Tracer la courbe de température
     ax1.plot(temp, depth, 'b',label='Température',)
@@ -57,9 +62,9 @@ def plot_map_sal_or_temp(i,vect,lat,lon,depth):
     ax.set_ylabel('Latitude (°)')
     ax.invert_yaxis()
     if i==1 :
-        fig.colorbar(im, ax=ax,label="Salinité (PSU)",fraction=0.50)
+        fig.colorbar(im, ax=ax,label="Salinité (PSU)",fraction=0.15,shrink=0.5)
     if i==2 :
-        fig.colorbar(im, ax=ax,label="Température (°)",fraction=0.50)
+        fig.colorbar(im, ax=ax,label="Température (°)",fraction=0.15,shrink=0.5)
     plt.show()
 
 '''
@@ -72,49 +77,14 @@ more than 1000 meter depth --> Delgrosso
 '''
 
 def soundspeed(S,T,D):
-        # 0 = D
-        # # This is copied directly from the UNESCO algorithms.
-        # # CHECKVALUE: SVEL=1731.995 M/S, S=40 (IPSS-78),T=40 DEG C,P=10000 DBAR
-        # # SCALE PRESSURE TO BARS
-        # P = P0 / 10.0
-        # SR = np.sqrt(np.abs(S))
-        # # S**2 TERM.
-        # D = 1.727e-3 - 7.9836e-6 * P
-        # # S**3/2 TERM.
-        # B1 = 7.3637e-5 + 1.7945e-7 * T
-        # B0 = -1.922e-2 - 4.42e-5 * T
-        # B = B0 + B1 * P
-        # # S**1 TERM.
-        # A3 = (-3.389e-13 * T + 6.649e-12) * T + 1.100e-10
-        # A2 = ((7.988e-12 * T - 1.6002e-10) * T + 9.1041e-9) * T - 3.9064e-7
-        # A1 = (
-        #     ((-2.0122e-10 * T + 1.0507e-8) * T - 6.4885e-8) * T - 1.2580e-5
-        # ) * T + 9.4742e-5
-        # A0 = (((-3.21e-8 * T + 2.006e-6) * T + 7.164e-5) * T - 1.262e-2) * T + 1.389
-        # A = ((A3 * P + A2) * P + A1) * P + A0
-        # # S**0 TERM.
-        # C3 = (-2.3643e-12 * T + 3.8504e-10) * T - 9.7729e-9
-        # C2 = (
-        #     ((1.0405e-12 * T - 2.5335e-10) * T + 2.5974e-8) * T - 1.7107e-6
-        # ) * T + 3.1260e-5
-        # C1 = (
-        #     ((-6.1185e-10 * T + 1.3621e-7) * T - 8.1788e-6) * T + 6.8982e-4
-        # ) * T + 0.153563
-        # C0 = (
-        #     (((3.1464e-9 * T - 1.47800e-6) * T + 3.3420e-4) * T - 5.80852e-2) * T
-        #     + 5.03711
-        # ) * T + 1402.388
-        # C = ((C3 * P + C2) * P + C1) * P + C0
-        # # SOUND SPEED RETURN.
-        # ssp = C + (A + B * SR + D * S) * S
-        # return ssp
-
         '''
+        This function compute sound speed profile from Delgrosso equation
         Del grosso uses pressure in kg/cm^2.  To get to this from dbars
         we  must divide by "g".  From the UNESCO algorithms (referring to
         ANON (1970) BULLETIN GEODESIQUE) we have this formula for g as a
         function of latitude and pressure.  We set latitude to 45 degrees
         for convenience!
+        This formula has been taken from SBE Data Processing Software
         '''
         XX = np.sin(45 * np.pi / 180)
         GR = 9.780318 * (1.0 + (5.2788e-3 + 2.36e-5 * XX) * XX) + 1.092e-6 * D
@@ -124,20 +94,14 @@ def soundspeed(S,T,D):
         DCT = (0.501109398873e1 - (0.550946843172e-1 - 0.221535969240e-3 * T) * T) * T
         DCS = (0.132952290781e1 + 0.128955756844e-3 * S) * S
         DCP = (0.156059257041e0 + (0.244998688441e-4 - 0.883392332513e-8 * P) * P) * P
-        DCSTP = (
-            (
-                -0.127562783426e-1 * T * S
-                + 0.635191613389e-2 * T * P
-                + 0.265484716608e-7 * T * T * P * P
+        DCSTP = ((-0.127562783426e-1 * T * S + 0.635191613389e-2 * T * P + 0.265484716608e-7 * T * T * P * P
                 - 0.159349479045e-5 * T * P * P
                 + 0.522116437235e-9 * T * P * P * P
-                - 0.438031096213e-6 * T * T * T * P
-            )
+                - 0.438031096213e-6 * T * T * T * P)
             - 0.161674495909e-8 * S * S * P * P
             + 0.968403156410e-4 * T * T * S
             + 0.485639620015e-5 * T * S * S * P
-            - 0.340597039004e-3 * T * S * P
-        )
+            - 0.340597039004e-3 * T * S * P)
         ssp = C000 + DCT + DCS + DCP + DCSTP
         return ssp
 
@@ -222,7 +186,7 @@ if __name__ == '__main__' :
     pressure=swpressure(depth*-1,lat_cast2)
     sv=soundspeed(salinity_cast2,temp_cast2,pressure[:,0])
 
-    # plot_map_sal_or_temp(1,salinity,lat,lon,0)
+    plot_map_sal_or_temp(1,salinity,lat,lon,0)
 
     # plot_sal_temp(salinity_cast2,temp_cast2,depth)
     # plot_sv(sv,depth)
@@ -258,28 +222,7 @@ if __name__ == '__main__' :
     ax.set_xlabel('salinity (PSU)')
     ax.set_ylabel('Depth (m)')
     ax.legend()
-    plt.title('Comparison of temperature Bermuda 2003 - 2020')
+    plt.title('Comparison of salinity Bermuda 2003 - 2020')
     plt.show()
-
-    # # interpolate the depth and sv arrays to the new depth axis
-    # sv_interp = interp1d(depth.flatten(), sv, bounds_error=False, fill_value="extrapolate")(depths_cast2[:np.argmin(depths_cast2)])
-    # c_interp = interp1d(depth.flatten(), c.flatten(), bounds_error=False, fill_value="extrapolate")(depths_cast2[:np.argmin(depths_cast2)])
-    # # now depth_new, sv_interp, and c_interp have the same length along the interpolation axis
-    #
-    # # Calculate the differences between the profiles
-    # diff_bm_gdem = sv_delgrosso_cast2[:np.argmin(depths_cast2)] - sv_interp
-    # diff_bm_munk = sv_delgrosso_cast2[:np.argmin(depths_cast2)] - c_interp
-    # diff_gdem_munk = sv_interp - c_interp
-    # # Plot the differences
-    # fig, ax = plt.subplots(figsize=(16, 10))
-    # ax.plot(depths_cast2[:np.argmin(depths_cast2)],diff_bm_gdem,label='Bermuda - GDEM')
-    # ax.plot(depths_cast2[:np.argmin(depths_cast2)],diff_bm_munk,label="Bermuda - Munk")
-    # ax.plot(depths_cast2[:np.argmin(depths_cast2)],diff_gdem_munk,label="GDEM - Munk")
-    # ax.set_ylabel('Sound Velocity Difference (m/s)')
-    # ax.set_xlabel('Depth (m)')
-    # ax.legend()
-    # ax.invert_xaxis()
-    # plt.title('Differences in Sound Velocity Profiles')
-    # plt.show()
 
     diff_plot_soundvelocity(depth,sv,c,sv_delgrosso_cast2,depths_cast2)
