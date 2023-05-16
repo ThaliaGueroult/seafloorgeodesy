@@ -25,6 +25,7 @@ def plot_sal_temp(sal,temp,depth):
     ax1.plot(temp, depth, 'b',label='Température',)
     ax1.set_xlabel('Température (°C)')
     ax1.set_ylabel('Profondeur (m)')
+    ax1.grid()
     ax1.legend()
 
     # Tracer la courbe de salinité
@@ -32,6 +33,7 @@ def plot_sal_temp(sal,temp,depth):
     ax2.set_xlabel('Salinité (PSU)')
     ax2.set_ylabel('Profondeur (m)')
     ax2.legend()
+    ax2.grid()
     plt.show()
 
 def plot_sv(sv,depth):
@@ -46,6 +48,7 @@ def plot_sv(sv,depth):
     ax.set_ylabel('Depth (m)')
     ax.set_title('Sound Velocity profile from GDEM data')
     ax.legend()
+    ax.grid()
     plt.show()
 
 def plot_map_sal_or_temp(i,vect,lat,lon,depth):
@@ -61,6 +64,7 @@ def plot_map_sal_or_temp(i,vect,lat,lon,depth):
     ax.set_xlabel('Longitude (°)')
     ax.set_ylabel('Latitude (°)')
     ax.invert_yaxis()
+    ax.grid()
     if i==1 :
         fig.colorbar(im, ax=ax,label="Salinité (PSU)",fraction=0.15,shrink=0.5)
     if i==2 :
@@ -76,7 +80,7 @@ less than 1000 meter depth --> Chen-Millero
 more than 1000 meter depth --> Delgrosso
 '''
 
-def soundspeed(S,T,D):
+def soundspeed_delgrosso(S,T,D):
         '''
         This function compute sound speed profile from Delgrosso equation
         Del grosso uses pressure in kg/cm^2.  To get to this from dbars
@@ -145,10 +149,10 @@ def get_indexlatlon(lat_test,lon_test,lat,lon):
 
     return lat_idx,lon_idx
 
-def sound_velocity(z):
+def sound_velocity(z,z1,B,C1):
     eps = 0.00737
-    nu = 2*(z-1300)/1300
-    return 1492*(1.0+eps*(nu-1+np.exp(-nu)))
+    nu = 2*(z-z1)/B
+    return C1*(1.0+eps*(nu-1+np.exp(-nu)))
 
 def diff_plot_soundvelocity(depth,sv,c,sv_delgrosso_cast2,depths_cast2):
     # interpolate the depth and sv arrays to the new depth axis
@@ -169,6 +173,7 @@ def diff_plot_soundvelocity(depth,sv,c,sv_delgrosso_cast2,depths_cast2):
     ax.set_ylabel('Sound Velocity Difference (m/s)')
     ax.set_xlabel('Depth (m)')
     ax.legend()
+    ax.grid()
     ax.invert_xaxis()
     plt.title('Differences in Sound Velocity Profiles')
     plt.show()
@@ -215,37 +220,40 @@ if __name__ == '__main__' :
 
     #convert depth into pressure in dB and compute soundspeed with Chen-Millero equation
     pressure=swpressure(depth*-1,lat_cast2)
-    sv=soundspeed_chen(salinity_cast2,temp_cast2,pressure[:,0])
+    sv=soundspeed_delgrosso(salinity_cast2,temp_cast2,pressure[:,0])
 
-    plot_map_sal_or_temp(1,salinity,lat,lon,0)
+    # plot_map_sal_or_temp(1,salinity,lat,lon,0)
 
     # plot_sal_temp(salinity_cast2,temp_cast2,depth)
     # plot_sv(sv,depth)
 
-    c = sound_velocity(depth*-1)
+    # c = sound_velocity(depth*-1,1300,1300,1492)
+    c = sound_velocity(depth*-1,1508.69,1785.58,1498.32)
     data2 = np.loadtxt(data_file2,skiprows=348)
     sv_delgrosso_cast2 = data2[:,21]
     depths_cast2 = -data2[:,0]
-    fig, ax = plt.subplots(figsize=(16, 10))
-    ax.plot(sv_delgrosso_cast2,depths_cast2,label='Bermuda, Princeton 2020')
-    ax.plot(sv,depth,label="GDEM, Navy 2003")
-    ax.plot(c, depth,label='Munk Model, 1979')
-    ax.set_xlabel('Sound Velocity (m/s)')
-    ax.set_ylabel('Depth (m)')
-    ax.legend()
-    plt.title('Comparison of Sound Velocity Profile')
-    plt.show()
-
-    temp_delgrosso_cast2 = data2[:,1]
-    fig, ax = plt.subplots(figsize=(16, 10))
-    ax.plot(temp_delgrosso_cast2[:np.argmin(depths_cast2)],depths_cast2[:np.argmin(depths_cast2)],label='Bermuda, Princeton 2020')
-    ax.plot(temp[:, lat_idx, lon_idx],depth,label="GDEM, Navy 2003")
-    ax.set_xlabel('Temperature (°)')
-    ax.set_ylabel('Depth (m)')
-    ax.legend()
-    plt.title('Comparison of temperature Bermuda 2003 - 2020')
-    plt.show()
-
+    # fig, ax = plt.subplots(figsize=(16, 10))
+    # ax.plot(sv_delgrosso_cast2,depths_cast2,label='Bermuda, Princeton 2020')
+    # ax.plot(sv,depth,label="GDEM, Navy 2003")
+    # ax.plot(c, depth,label='Munk Model, 1979')
+    # ax.set_xlabel('Sound Velocity (m/s)')
+    # ax.set_ylabel('Depth (m)')
+    # ax.legend()
+    # ax.grid()
+    # plt.title('Comparison of Sound Velocity Profile')
+    # plt.show()
+    #
+    # temp_delgrosso_cast2 = data2[:,1]
+    # fig, ax = plt.subplots(figsize=(16, 10))
+    # ax.plot(temp_delgrosso_cast2[:np.argmin(depths_cast2)],depths_cast2[:np.argmin(depths_cast2)],label='Bermuda, Princeton 2020')
+    # ax.plot(temp[:, lat_idx, lon_idx],depth,label="GDEM, Navy 2003")
+    # ax.set_xlabel('Temperature (°)')
+    # ax.set_ylabel('Depth (m)')
+    # ax.legend()
+    # ax.grid()
+    # plt.title('Comparison of temperature Bermuda 2003 - 2020')
+    # plt.show()
+    #
     sal_delgrosso_cast2 = data2[:,4]
     fig, ax = plt.subplots(figsize=(16, 10))
     ax.plot(sal_delgrosso_cast2[:np.argmin(depths_cast2)],depths_cast2[:np.argmin(depths_cast2)],label='Bermuda, Princeton 2020')
@@ -253,7 +261,93 @@ if __name__ == '__main__' :
     ax.set_xlabel('salinity (PSU)')
     ax.set_ylabel('Depth (m)')
     ax.legend()
+    ax.grid()
     plt.title('Comparison of salinity Bermuda 2003 - 2020')
     plt.show()
 
-    diff_plot_soundvelocity(depth,sv,c,sv_delgrosso_cast2,depths_cast2)
+    # diff_plot_soundvelocity(depth,sv,c,sv_delgrosso_cast2,depths_cast2)
+
+    # interpolate the depth and sv arrays to the new depth axis
+    sv_interp = interp1d(depth.flatten(), sv, bounds_error=False, fill_value="extrapolate")(depths_cast2[:np.argmin(depths_cast2)])
+    c_interp = interp1d(depth.flatten(), c.flatten(), bounds_error=False, fill_value="extrapolate")(depths_cast2[:np.argmin(depths_cast2)])
+    # now depth_new, sv_interp, and c_interp have the same length along the interpolation axis
+
+    # Calculate the differences between the profiles
+    diff_bm_gdem = sv_delgrosso_cast2[:np.argmin(depths_cast2)] - sv_interp
+    diff_bm_munk = sv_delgrosso_cast2[:np.argmin(depths_cast2)] - c_interp
+    diff_gdem_munk = sv_interp - c_interp
+    print(np.mean(diff_bm_gdem))
+
+    # fig = plt.figure(figsize=(16, 10))
+    # gs = fig.add_gridspec(2,2)
+    # ax1 = fig.add_subplot(gs[0, 0])
+    # ax2 = fig.add_subplot(gs[0, 1])
+    # ax3 = fig.add_subplot(gs[1, :])
+    #
+    # ax1.plot(sv_delgrosso_cast2, depths_cast2, label='Bermuda, Princeton 2020')
+    # ax1.set_xlabel('Sound Velocity (m/s)')
+    # ax1.set_ylabel('Depth (m)')
+    # ax1.legend()
+    # ax1.grid()
+    # ax1.set_title('Sound Velocity Profile Bermuda, 2020')
+    #
+    # # Premier tracé à gauche
+    # ax2.plot(sv_delgrosso_cast2, depths_cast2, label='Bermuda, Princeton 2020')
+    # ax2.plot(sv, depth, label="GDEM, Navy 2003")
+    # ax2.plot(c, depth, label='Munk Model, 1974')
+    # ax2.set_xlabel('Sound Velocity (m/s)')
+    # ax2.set_ylabel('Depth (m)')
+    # ax2.legend()
+    # ax2.grid()
+    # ax2.set_title('Comparison of Sound Velocity Profile')
+    #
+    # # Deuxième tracé à droite
+    # ax3.plot(depths_cast2[:np.argmin(depths_cast2)], diff_bm_gdem,'red', label='Bermuda - GDEM')
+    # ax3.plot(depths_cast2[:np.argmin(depths_cast2)], diff_bm_munk, 'purple',label="Bermuda - Munk")
+    # ax3.plot(depths_cast2[:np.argmin(depths_cast2)], diff_gdem_munk, 'cyan', label="GDEM - Munk")
+    # ax3.set_ylabel('Sound Velocity Difference (m/s)')
+    # ax3.set_xlabel('Depth (m)')
+    # ax3.legend()
+    # ax3.grid()
+    # ax3.invert_xaxis()
+    # ax3.set_title('Differences in Sound Velocity Profiles')
+    #
+    # # Ajuster l'espace entre les deux tracés
+    # plt.subplots_adjust(wspace=0.3)
+    #
+    # # Afficher la figure
+    # plt.show()
+
+    fig = plt.figure(figsize=(16, 10))
+    gs = fig.add_gridspec(2,2)
+    ax1 = fig.add_subplot(gs[0, 0])
+    ax2 = fig.add_subplot(gs[0, 1])
+    ax3 = fig.add_subplot(gs[1, :])
+
+    ax1.plot(sv_delgrosso_cast2, depths_cast2,'green', label='Bermuda, Princeton 2020')
+    ax1.set_xlabel('Sound Velocity (m/s)')
+    ax1.set_ylabel('Depth (m)')
+    ax1.legend()
+    ax1.grid()
+    ax1.set_title('Sound Velocity Profile Bermuda, 2020, Princeton')
+
+    ax2.plot(sv, depth,'navy', label="GDEM, Navy 2003")
+    ax2.set_xlabel('Sound Velocity (m/s)')
+    ax2.set_ylabel('Depth (m)')
+    ax2.legend()
+    ax2.grid()
+    ax2.set_title('Sound Velocity Profile Bermuda, 2003, GDEM US Navy')
+
+    ax3.plot(depths_cast2[:np.argmin(depths_cast2)], diff_bm_gdem,'red', label='Bermuda - GDEM')
+    ax3.set_ylabel('Sound Velocity Difference (m/s)')
+    ax3.set_xlabel('Depth (m)')
+    ax3.legend()
+    ax3.grid()
+    ax3.invert_xaxis()
+    ax3.set_title('Differences in Sound Velocity Profiles')
+
+    # Ajuster l'espace entre les deux tracés
+    plt.subplots_adjust(wspace=0.3)
+
+    # Afficher la figure
+    plt.show()
