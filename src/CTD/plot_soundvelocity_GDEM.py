@@ -182,8 +182,8 @@ def diff_plot_soundvelocity(depth,sv,c,sv_delgrosso_cast2,depths_cast2):
 
 if __name__ == '__main__' :
     # loading data from GDEM
-    c
     map = scipy.io.loadmat('../../data/GDEM/geomap_GDEMV.mat')
+    data = scipy.io.loadmat('../../data/GDEM/Jun_GDEMV.mat')
 
     #getting celerity and salinity and converting no data to nan
     salinity=data['salinity']
