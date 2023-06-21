@@ -2,6 +2,7 @@ import numpy as np
 
 def swpressure(dorp=None, lat=30, dtop=1):
     """
+    From Frederik J.Simons, Princeton, transcripted in Python
     Pressure/depth in seawater of a global ocean following
     Saunders (1981) "Practical conversion of pressure to depth"
     10.1175/1520-0485(1981)011<0573:PCOPTD>2.0.CO;2

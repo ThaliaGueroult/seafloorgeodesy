@@ -41,7 +41,7 @@ def ydot(y, t):
 
     return [idot, xdot, zdot, pdot]
 
-def rayPathLSODA(alpha, z0=0, x0=10, tMax=400, dt=0.01):
+def rayPathLSODA(alpha, z0=0, x0=10, tMax=400, dt=0.01, xr=12000, zr=5100, tol=1e-6):
     # process inputs
     i0 = (90 - alpha) * np.pi / 180
     p = math.sin(i0) / c(z0)
@@ -66,6 +66,8 @@ def rayPathLSODA(alpha, z0=0, x0=10, tMax=400, dt=0.01):
     # clean rays for surfacing, i.e., z < 0 (depth is positive)
     surfaced = False
     for k in range(z.size):
+        if abs(x[k] - xr) < tol and abs(z[k] - zr) < tol:
+            break  # Exit the loop if the condition is satisfied
         if surfaced:
             z[k] = np.nan
             x[k] = np.nan
@@ -74,6 +76,7 @@ def rayPathLSODA(alpha, z0=0, x0=10, tMax=400, dt=0.01):
             surfaced = True
             z[k] = np.nan
             x[k] = np.nan
+        # Check if (x[k], z[k]) is close enough to (xr, zr)
     return x, z
 
 def rayPlot(alpha, zInit="default", xInit="default", tMax=400, dt=0.01):
@@ -82,7 +85,7 @@ def rayPlot(alpha, zInit="default", xInit="default", tMax=400, dt=0.01):
         zInit = np.zeros(alpha.size)
     if isinstance(xInit, str):
         xInit = np.zeros(alpha.size)
-
+    print(alpha)
     xInits = xInit
     zInits = zInit
 
@@ -91,6 +94,7 @@ def rayPlot(alpha, zInit="default", xInit="default", tMax=400, dt=0.01):
 
     # Graphique de gauche, trajectoires des rayons
     for k, alpha_k in enumerate(alpha):
+        print(alpha_k)
         xPath, zPath = rayPathLSODA(alpha_k, zInits[k], xInits[k], tMax, dt)
         ax1.plot(xPath, zPath, label='{}°'.format(alpha_k))
 
@@ -100,7 +104,6 @@ def rayPlot(alpha, zInit="default", xInit="default", tMax=400, dt=0.01):
     ax2.plot(cVals, zVals)
 
     # Configuration des fenêtres des graphiques
-    ax1.scatter(22761, 5025, color='red', label='Receiver')
     ax1.set_xlim(0, maxX)
     ax1.set_ylim(minDepth, maxDepth)
     ax1.invert_yaxis()
@@ -129,7 +132,6 @@ if __name__=='__main__':
     alpha = np.linspace(10, 170) # degrees below Horizontal
 
     # plotting windows
-
     # minimum and maximum depths (in m)
     minDepth = 0
     maxDepth = 6000

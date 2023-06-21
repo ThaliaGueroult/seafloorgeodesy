@@ -2,12 +2,13 @@ import re
 
 def extract_lat_lon(filename):
     '''
-    This function extract decimal latitude and longitude from a cnv 
+    This function extract decimal latitude and longitude from a cnv
     file provided by a Sea-Bird SBE 9
     '''
     with open(filename, 'r') as f:
         content = f.read()
         lat_match = re.search(r'NMEA Latitude = (\d+) (\d+\.\d+) [NS]', content)
+        print(lat_match)
         lat_degrees = float(lat_match.group(1))
         lat_minutes = float(lat_match.group(2))
         lat_decimal = lat_degrees + lat_minutes / 60.0
