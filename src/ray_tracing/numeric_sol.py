@@ -4,66 +4,66 @@ import matplotlib.pyplot as plt
 import scipy.io as sio
 from scipy import integrate
 import math
-
-#inspired from August Wietfield, 2022
+# Inspired from August Wietfield, 2022
 
 '''
-uses an observed piecewise-linear (in depth) wavespeed profile to calculate and plot
-the paths of soundwave rays
-
-plots rays for a given set of initial conditions and given minimum and maximum
-depths, horizontal distances
+This code calculates and plots soundwave ray paths using a piecewise-linear wavespeed profile.
 '''
 
+# Load depth and sound speed data
 depth = np.loadtxt('../../data/depth_GDEM.txt')
 soundspeedData = np.loadtxt('../../data/sv_GDEM.txt')
+
+# Calculate the slope of the wavespeed profile
 m = np.diff(soundspeedData) / np.diff(depth)
 m = np.insert(m, 0, m[0])
 
-# define wavespeed profile function
+# Define the wavespeed profile function
 def c(z):
-    segment = np.searchsorted(depth, z) # - 1
-    if segment >= depth.shape[0] : segment = depth.shape[0] - 1
+    # Find the segment of the wavespeed profile based on depth
+    segment = np.searchsorted(depth, z)
+    if segment >= depth.shape[0]:
+        segment = depth.shape[0] - 1
+    # Calculate the wavespeed using the linear interpolation equation
     return m[segment] * (z - depth[segment]) + soundspeedData[segment]
 
-# define derivative of wavespeed profile function
+# Define the derivative of the wavespeed profile function
 def dcdz(z):
-    segment = np.searchsorted(depth, z) # - 1
-    if segment >= depth.shape[0] : segment = depth.shape[0] - 1
+    # Find the segment of the wavespeed profile based on depth
+    segment = np.searchsorted(depth, z)
+    if segment >= depth.shape[0]:
+        segment = depth.shape[0] - 1
+    # Return the slope of the segment
     return m[segment]
 
+# Define the derivative function for integrating the ray equations
 def ydot(y, t):
     i, x, z, p = y
     idot = p * c(z) * dcdz(z)
     xdot = c(z) * math.sin(i)
     zdot = c(z) * math.cos(i)
     pdot = 0
-
     return [idot, xdot, zdot, pdot]
 
-def rayPathLSODA(alpha, z0=0, x0=10, tMax=400, dt=0.01):
-    # process inputs
+# Calculate the ray paths using numerical integration
+def ray_numeric(alpha, z0=0, x0=0, tMax=40, dt=0.001):
+    # Convert the angle to radians and calculate the initial slope
     i0 = (90 - alpha) * np.pi / 180
     p = math.sin(i0) / c(z0)
-
-    # initial state vector
+    # Set the initial state vector
     y0 = [i0, x0, z0, p]
-
-    # independent variable list (arclength)
+    # Generate the time values for integration
     tVal = 0
     tVals = []
     while tVal < tMax:
         tVals.append(tVal)
         tVal += dt
-
-    # calculation of ray by integrating ydot (uses LSODA algorithm)
+    # Integrate the ray equations using LSODA algorithm
     ray = integrate.odeint(ydot, y0, tVals)
-
-    # slice ray for x-values, z-values
+    # Extract the x and z coordinates of the ray
     x = ray[:, 1]
     z = ray[:, 2]
-
-    # clean rays for surfacing, i.e., z < 0 (depth is positive)
+    # Remove the portions of the ray that surface (z < 0)
     surfaced = False
     for k in range(z.size):
         if surfaced:
@@ -74,32 +74,28 @@ def rayPathLSODA(alpha, z0=0, x0=10, tMax=400, dt=0.01):
             surfaced = True
             z[k] = np.nan
             x[k] = np.nan
-    return x, z
+    return (x, z)
 
+# Plot the ray paths
 def rayPlot(alpha, zInit="default", xInit="default", tMax=400, dt=0.01):
-    # if zInit and xInit are "default", zInit and xInit set as 0
+    # Set the initial positions of the rays
     if isinstance(zInit, str):
         zInit = np.zeros(alpha.size)
     if isinstance(xInit, str):
         xInit = np.zeros(alpha.size)
-
     xInits = xInit
     zInits = zInit
-
-    # Initialisation du graphique
+    # Create subplots for ray paths and wavespeed profile
     fig, (ax1, ax2) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [2, 1]})
-
-    # Graphique de gauche, trajectoires des rayons
+    # Plot the ray paths
     for k, alpha_k in enumerate(alpha):
-        xPath, zPath = rayPathLSODA(alpha_k, zInits[k], xInits[k], tMax, dt)
+        xPath, zPath = ray_numeric(alpha_k, zInits[k], xInits[k], tMax, dt)
         ax1.plot(xPath, zPath, label='{}°'.format(alpha_k))
-
-    # Graphique de droite, profil de vitesse du son
+    # Plot the wavespeed profile
     zVals = np.linspace(minDepth, maxDepth, 1000)
     cVals = [c(zVal) for zVal in zVals]
     ax2.plot(cVals, zVals)
-
-    # Configuration des fenêtres des graphiques
+    # Configure the plot settings
     ax1.scatter(22761, 5025, color='red', label='Receiver')
     ax1.set_xlim(0, maxX)
     ax1.set_ylim(minDepth, maxDepth)
@@ -107,21 +103,14 @@ def rayPlot(alpha, zInit="default", xInit="default", tMax=400, dt=0.01):
     ax1.legend()
     ax2.set_ylim(minDepth, maxDepth)
     ax2.invert_yaxis()
-
-    # Titres et étiquettes des axes
     ax1.set_title("Ray Path in Linear Wavespeed profile")
     ax1.set_xlabel("Horizontal Distance (km)")
     ax1.set_ylabel("Depth (km)")
-
     ax2.set_title("Sound Celerity Profile")
     ax2.set_xlabel("Sound Celerity (km/s)")
     ax2.set_ylabel("Depth (km)")
-
-    # Ajustement de la taille de la figure
     fig.set_size_inches(12, 4)
     fig.set_dpi(100)
-
-    # Affichage du graphique
     plt.show()
 
 if __name__=='__main__':
