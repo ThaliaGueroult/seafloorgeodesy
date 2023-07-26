@@ -5,9 +5,9 @@ from scipy.interpolate import interp1d
 from numba import jit
 from scipy.interpolate import CubicSpline
 
-cz = np.loadtxt('../../data/cz_interp5250.txt')
-depth = np.loadtxt('../../data/depth_interp5250.txt')
-gradc = np.loadtxt('../../data/gradc_interp5250.txt')
+cz = np.loadtxt('../../data/SV/cz_interp5250.txt')
+depth = np.loadtxt('../../data/SV/depth_interp5250.txt')
+gradc = np.loadtxt('../../data/SV/gradc_interp5250.txt')
 
 # sv=np.loadtxt('../../data/sv_GDEM.txt')
 # depthg=np.loadtxt('../../data/depth_GDEM.txt')
@@ -46,9 +46,9 @@ def ray_analytic(cz, depth, gradc, theta0):
 
 
 if __name__=='__main__':
-    cz = np.loadtxt('../../data/cz_interp.txt')
-    depth = np.loadtxt('../../data/depth_interp.txt')
-    gradc = np.loadtxt('../../data/gradc_interp.txt')
+    cz = np.loadtxt('../../data/SV/cz_interp.txt')
+    depth = np.loadtxt('../../data/SV/depth_interp.txt')
+    gradc = np.loadtxt('../../data/SV/gradc_interp.txt')
 
     # sv=np.loadtxt('../../data/sv_GDEM.txt')
     # depthg=np.loadtxt('../../data/depth_GDEM.txt')
