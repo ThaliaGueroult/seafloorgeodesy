@@ -193,13 +193,13 @@ def table_angle(dz, step):
     data = {'list_beta': list_beta.astype(float),
     'c_esv': c_esv.astype(float)}
 
-    filename = f'est_table_without_tol/data_{dz}_step_angle_{step}.mat'
+    filename = f'esv_table_without_tol/data_{dz}_step_angle_{step}.mat'
     savemat(filename, data)
 
 def plot_esv():
 
     # Numéros de fichiers de 5226 à 5249
-    file_numbers = range(5200, 5226)
+    file_numbers = range(5201, 5227)
 
     # Initialisation des listes pour les données des fichiers
     all_angles = []
@@ -211,7 +211,7 @@ def plot_esv():
 
     for file_number in file_numbers:
         # Nom du fichier
-        file_name = f"esv_table/data_{file_number}_step_angle_2.mat"
+        file_name = f"esv_table_without_tol/data_{file_number}_step_angle_2.mat"
 
         # Charger les données depuis le fichier
         data = sio.loadmat(file_name)
@@ -237,59 +237,29 @@ def plot_esv():
     plt.show()
 
 if __name__ == '__main__':
+    # d = 5210
+    # for k in range(20):
+    #     d = d + 1
+    #     if d != 5225 :
+    #         table_angle(d,2)
+    plot_esv()
 
-    table_angle(5225,2)
-    # dist_analytic(5225,45)
-
-    # Numéros de fichiers de 5226 à 5249
-    # file_numbers = range(5226, 5250)
-    #
-    # # Initialisation des listes pour les données des fichiers
-    # all_angles = []
-    # all_esv = []
-    #
-    # # Liste de labels et de couleurs
-    # labels = []
-    # colors = plt.cm.rainbow(np.linspace(0, 1, len(file_numbers)))
-    #
-    # for file_number in file_numbers:
-    #     # Nom du fichier
-    #     file_name = f"data_{file_number}_step_angle_2.mat"
-    #
-    #     # Charger les données depuis le fichier
-    #     data = sio.loadmat(file_name)
-    #     esv = data['c_esv']
-    #     angle = data['list_beta']
-    #
-    #     # Ajouter les données à la liste globale
-    #     all_angles.extend(angle)
-    #     all_esv.extend(esv)
-    #
-    #     # Créer un label unique pour chaque fichier
-    #     label = f'{file_number} m'
-    #     labels.append(label)
-    #
-    # # Plot des données avec des labels et des couleurs différents pour chaque fichier
-    # for i in range(len(file_numbers)):
-    #     plt.scatter(all_angles[i], all_esv[i], label=labels[i], color=colors[i])
-    #
-    # plt.legend()
-    # plt.title('Effective Sound Velocity')
-    # plt.xlabel('Angle')
-    # plt.ylabel('ESV')
-    # plt.show()
-
-    #
-    # data = sio.loadmat('data_5224_step_angle_2.mat')
+    # data = sio.loadmat('esv_table_without_tol/data_5201_step_angle_2.mat')
     # esv = data['c_esv']
     # angle = data['list_beta']
-    # plt.scatter(angle,esv, label = '5230 m')
+    # plt.scatter(angle,esv, label = '5201 m')
     # plt.legend()
     # plt.title('Effective Sound Velocity')
-    # data = sio.loadmat('data_5250_step_angle_2.mat')
+    # data = sio.loadmat('esv_table_without_tol/data_5202_step_angle_2.mat')
     # print(data)
     # esv = data['c_esv']
     # angle = data['list_beta']
-    # plt.scatter(angle,esv)
+    # plt.scatter(angle,esv, label = '5202 m')
+    # plt.ticklabel_format(axis='y', style='plain')
+    # data = sio.loadmat('esv_table_without_tol/data_5203_step_angle_2.mat')
+    # print(data)
+    # esv = data['c_esv']
+    # angle = data['list_beta']
+    # plt.scatter(angle,esv, label = '5203 m')
     # plt.ticklabel_format(axis='y', style='plain')
     # plt.show()
