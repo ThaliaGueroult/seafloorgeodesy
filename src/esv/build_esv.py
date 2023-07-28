@@ -237,11 +237,10 @@ def plot_esv():
     plt.show()
 
 if __name__ == '__main__':
-    # d = 5210
-    # for k in range(20):
-    #     d = d + 1
-    #     if d != 5225 :
-    #         table_angle(d,2)
+    # d = 5241
+    # for k in range(10):
+    #     d+=1
+    #     table_angle(d,2)
     plot_esv()
 
     # data = sio.loadmat('esv_table_without_tol/data_5201_step_angle_2.mat')
