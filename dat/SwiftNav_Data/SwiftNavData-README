@@ -1,0 +1,44 @@
+Four receivers mounted on 03 deck (? 10/01/2021)
+
+SwiftNavData/BIOSCruise/Unit3/0001-07080.sbp
+-> Written by SwiftNav receiver, including accelerometer
+
+Hayden converted *.sbp to other formats using SBP2RINEX, now local
+
+SwiftNavData/BIOSCruise/Unit3/0001-07080.obs
+SwiftNavData/BIOSCruise/Unit3/0001-07080.nav
+
+Hayden used RTKPOST to convert to *.pos
+Hayden processed against Bermuda core station
+It's NOT real-time-kinematics but differential double-differencing
+with a fixed base station.
+
+-> Probably these first two would go into GipsyX and now PRIDE
+With/without companion station
+
+For GipsyX to run these files, in the # / TYPES OF OBSERV
+header line need to change C2 --> P2
+This is because SwiftNav uses GPS L2C signals
+which GipsyX does not support
+
+See support page: https://support.swiftnav.com/support/solutions/articles/44001907895-sbp-to-rinex-converter-and-data-post-processing
+
+Hayden obtained these additional files, just other formats
+
+SwiftNavData/BIOSCruise/Unit3/0001-07020.sbs
+
+SwiftNavData/BIOSCruise/Unit3/0001-07080.cnav
+SwiftNavData/BIOSCruise/Unit3/0001-07080.gnav
+SwiftNavData/BIOSCruise/Unit3/0001-07080.hnav
+SwiftNavData/BIOSCruise/Unit3/0001-07080.lnav
+
+-> So far, these haven't been used
+
+Let's begin with the Jacksonville dockside data for a sanity check
+
+--> Unit 2 data is no good, the data are not sampled every second
+
+--> Each unit contains 168 hours of data, working to break trip into
+    sections (travel to test site, campaign mode, travel home, etc)
+
+    First 18 hours: Jacksonville
