@@ -49,7 +49,7 @@ def xyz2dec(xyzS, xyzR):
     xi, yi, zi = xyzI[0], xyzI[1], xyzI[2]
 
     # Calculate the vertical distance
-    dz = elevR-elevS
+    dz = -elevR-elevS
 
     # Calculate the horizontal distance
     dx = xi - xs
@@ -92,6 +92,7 @@ def generate_trajectory():
 
 
 def find_esv(beta, dz):
+    # print(beta,dz)
     folder_path = '../esv/esv_table_without_tol'
     closest_file = None
     closest_dz = float('inf')
@@ -158,7 +159,7 @@ def calculate_travel_times(trajectory, receiver):
         xr, yr, zr = geod2ecef(xyzR[0], xyzR[1], xyzR[2])
 
         travel_time = np.sqrt((xs-xr)**2+(ys-yr)**2+(zs-zr)**2)/ esv
-        travel_time_cst = np.sqrt((xs-xr)**2+(ys-yr)**2+(zs-zr)**2)/1515
+        travel_time_cst = np.sqrt((xs-xr)**2+(ys-yr)**2+(zs-zr)**2)/1500
         # Append the travel time to the list
         travel_times.append(travel_time)
         travel_times_cst.append(travel_time_cst)
@@ -219,34 +220,57 @@ if __name__ == '__main__':
     # plt.show()
 
     data = sio.loadmat('../../data/SwiftNav_Data/Unit1-camp.mat')
+    print("GNSS: ", data)
 
-    # Extraire les données
-    lat = data['d'][0]['lat'][0].flatten()
-    lon = data['d'][0]['lon'][0].flatten()
-    elev = data['d'][0]['height'][0].flatten()  # Flatten the elev numpy array
+    data = sio.loadmat('../../data/DOG/DOG1/DOG1-camp.mat')
+    print("\n\nBEACON: ",data)
+    print("\n\nHEADER",data.keys())
+    print(data["tags"])
 
-    # Filtrer les valeurs aberrantes
-    traj_reel = filter_outliers(lat, lon, elev)
+    data = data["tags"].astype(float)
 
-    slant_range, slant_range_cst, diff = calculate_travel_times(traj_reel,xyzR)
-
-    plt.plot(slant_range, label = 'SV GDEM Bermuda')
-    plt.plot(slant_range_cst, label = '1515 m/s')
-    plt.ylabel('Time travel (s)')
-    plt.xlabel('Point Index')
-    plt.legend()
+    new_data = np.zeros(data[:,1].shape)
+    new_data[0] = data[0,1]
+    k = 0
+    for i in range(1, data.shape[0]):
+        if data[i-1,1] - data[i,1] > 9/10*1000000000:
+            k+=1
+        else:
+            new_data[i] = 1000000000*k + data[i,1]
+    print(np.max(data[:,1]))
+    print(np.min(data[:,1]))
+    plt.figure()
+    plt.scatter(data[:,0]/3600, data[:,1]/10**8,s=1)
+    # plt.scatter(data[:,0]/3600, new_data,s=1)
     plt.show()
 
-    y=np.arange(0,len(slant_range),1)
-
-    plt.scatter(slant_range,y, label = 'SV GDEM Bermuda')
-    plt.scatter(slant_range_cst,y, label = '1500 m/s')
-    plt.ylabel('Time travel (s)')
-    plt.xlabel('Point Index')
-    plt.legend()
-    plt.show()
-
-    plt.plot(diff)
-    plt.ylabel('Time travel difference (s)')
-    plt.xlabel('Point Index')
-    plt.show()
+    # # Extraire les données
+    # lat = data['d'][0]['lat'][0].flatten()
+    # lon = data['d'][0]['lon'][0].flatten()
+    # elev = data['d'][0]['height'][0].flatten()  # Flatten the elev numpy array
+    #
+    # # Filtrer les valeurs aberrantes
+    # traj_reel = filter_outliers(lat, lon, elev)
+    #
+    # slant_range, slant_range_cst, diff = calculate_travel_times(traj_reel,xyzR)
+    #
+    # plt.plot(slant_range, label = 'SV GDEM Bermuda')
+    # plt.plot(slant_range_cst, label = '1515 m/s')
+    # plt.ylabel('Time travel (s)')
+    # plt.xlabel('Point Index')
+    # plt.legend()
+    # plt.show()
+    #
+    # y=np.arange(0,len(slant_range),1)
+    #
+    # plt.scatter(slant_range,y, label = 'SV GDEM Bermuda')
+    # plt.scatter(slant_range_cst,y, label = '1500 m/s')
+    # plt.ylabel('Time travel (s)')
+    # plt.xlabel('Point Index')
+    # plt.legend()
+    # plt.show()
+    #
+    # plt.plot(diff)
+    # plt.ylabel('Time travel difference (s)')
+    # plt.xlabel('Point Index')
+    # plt.show()
