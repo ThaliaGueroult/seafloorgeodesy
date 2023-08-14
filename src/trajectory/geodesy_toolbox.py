@@ -1,5 +1,6 @@
 import numpy as np
 
+
 # global variables : parameters for ellipsoid WGS84
 a = 6378137
 f = 1/298.257223563
