@@ -155,6 +155,37 @@ plt.subplots_adjust(hspace=0.5)
 plt.suptitle('Cast2 - Up and Down')
 plt.show()
 
+# Prepare a figure with 1 row and 2 columns
+fig, axs = plt.subplots(1, 2, figsize=(12, 8))
+
+# For the "Down" subplot:
+# Chen-Millero
+axs[0].plot(sv1_cast2[:min_index_cast2+1], depths_cast2[:min_index_cast2+1], 'b', label='Chen-Millero')
+# Delgrosso
+axs[0].plot(sv2_cast2[:min_index_cast2+1], depths_cast2[:min_index_cast2+1], 'orange', label='Delgrosso')
+# Wilson
+axs[0].plot(sv3_cast2[:min_index_cast2+1], depths_cast2[:min_index_cast2+1], 'g', label='Wilson')
+axs[0].set_xlabel("Sound Velocity (m/s)")
+axs[0].set_ylabel("Depth (m)")
+axs[0].set_title("Down")
+axs[0].legend()
+
+# For the "Up" subplot:
+# Chen-Millero
+axs[1].plot(sv1_cast2[min_index_cast2+1:], depths_cast2[min_index_cast2+1:], 'b', label='Chen-Millero')
+# Delgrosso
+axs[1].plot(sv2_cast2[min_index_cast2+1:], depths_cast2[min_index_cast2+1:], 'orange', label='Delgrosso')
+# Wilson
+axs[1].plot(sv3_cast2[min_index_cast2+1:], depths_cast2[min_index_cast2+1:], 'g', label='Wilson')
+axs[1].set_xlabel("Sound Velocity (m/s)")
+axs[1].set_ylabel("Depth (m)")
+axs[1].set_title("Up")
+axs[1].legend()
+
+plt.subplots_adjust(wspace=0.4)
+plt.suptitle('Cast2 - Comparison of Up vs Down')
+plt.show()
+
 #Localisation of the different profiles using Folium
 
 #cast1
