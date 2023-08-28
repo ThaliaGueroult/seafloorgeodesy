@@ -139,7 +139,7 @@ def plot_esv():
 
 def plot_and_save_esv():
     # Numéros de fichiers de 5226 à 5249
-    file_numbers = range(5182, 5246)
+    file_numbers = range(5250,5251)
 
     # Liste de labels et de couleurs
     labels = []
@@ -164,8 +164,8 @@ def plot_and_save_esv():
         new_esv = f(new_angles)
 
         # Enregistrer les données interpolées dans un fichier avec le nom reflétant le step de 0.01
-        new_file_name = f"esv_table_without_tol/data_{file_number}_step_angle_0_01.csv"
-        np.savetxt(new_file_name, np.column_stack((new_angles, new_esv)), delimiter=',')
+        new_file_name = f"esv_table_without_tol/mat_interp/data_{file_number}_step_angle_0_01.mat"
+        sio.savemat(new_file_name, {'elevation angle (deg)': new_angles, 'esv (m/s)': new_esv})
 
         plt.plot(new_angles, new_esv, label=labels[i], color=colors[i])
 
@@ -208,6 +208,11 @@ def compare_interpolations(file_number=5225):
 
 
 if __name__ == '__main__':
-    table_angle(5181,2)
+    # table_angle(5130,2)
+    # table_angle(5250,2)
+    # for k in range (8):
+    #     table_angle(5250+k,2)
+    # plot_esv()
+    plot_and_save_esv()
 
     compare_interpolations(file_number=5225)
