@@ -10,16 +10,12 @@ import datetime
 def calculate_intermediate_point(xyzS, xyzR):
     '''
     Inputs:
-    xyzS - Source coordinates [longitude, latitude, altitude]
-    xyzR - Receiver coordinates [longitude, latitude, altitude]
+    xyzS - Source coordinates
+    xyzR - Receiver coordinates
 
     Outputs:
-    xyzI - Intermediate point coordinates [longitude, latitude, altitude]
+    xyzI - Intermediate point coordinates
     '''
-    # Convert source and receiver coordinates from geodetic to ECEF
-    # xs, ys, zs = geodetic2ecef(xyzS[0], xyzS[1], xyzS[2])
-    # xr, yr, zr = geodetic2ecef(xyzR[0], xyzR[1], xyzR[2])
-
     xs, ys, zs = xyzS[0], xyzS[1], xyzS[2]
     xr, yr, zr = xyzR[0], xyzR[1], xyzR[2]
 
@@ -31,15 +27,15 @@ def calculate_intermediate_point(xyzS, xyzR):
     yi = ys
     zi = zr
 
-    xyzI = [xi, yi, zr]
-
+    xyzI = [xi, yi, zi]
+    print(xyzI)
     return xyzI
 
 def xyz2dec(xyzS, xyzR):
     '''
     Inputs:
-    xyzS - Source coordinates [longitude, latitude, altitude]
-    xyzR - Receiver coordinates [longitude, latitude, altitude]
+    xyzS
+    xyzR
 
     Outputs:
     dz - Vertical distance between source and receiver
@@ -49,7 +45,7 @@ def xyz2dec(xyzS, xyzR):
     elevR=xyzR[2]
     # Calculate the intermediate point coordinates
     xyzI = calculate_intermediate_point(xyzS, xyzR)
-    # xs, ys, zs = geodetic2ecef(xyzS[0], xyzS[1], xyzS[2])
+
     xs, ys, zs = xyzS[0], xyzS[1], xyzS[2]
     xi, yi, zi = xyzI[0], xyzI[1], xyzI[2]
 
@@ -59,41 +55,13 @@ def xyz2dec(xyzS, xyzR):
     # Calculate the horizontal distance
     dx = xi - xs
     dy = yi - ys
+
     distance_horizontale = np.sqrt(dx**2 + dy**2)
 
     # Calculate the elevation angle
     beta = math.degrees(math.atan2(dz, distance_horizontale))
 
     return dz, beta
-
-def generate_trajectory():
-    '''
-    Generate a trajectory in the shape of an "8" with varying altitude.
-
-    Returns:
-    trajectory (list): List of tuples representing the trajectory points in the format (latitude, longitude, altitude).
-    '''
-
-    lat_center = 31.45
-    lon_center = 291.30
-    lat_radius = 0.1
-    lon_radius = 0.1
-    num_points = 10000  # Number of points on the trajectory
-
-    trajectory = []
-
-    for i in range(num_points):
-        t = float(i) / (num_points - 1)  # Normalized value between 0 and 1
-        angle = t * 2 * math.pi
-
-        lat = lat_center + lat_radius * math.sin(angle)
-        lon = lon_center + lon_radius * math.sin(2 * angle)
-        elev = 5 * math.sin(angle)  # Sinusoidal altitude between -5 m and 5 m
-
-        point = (lat, lon, elev)
-        trajectory.append(point)
-
-    return trajectory
 
 
 def find_esv(beta, dz):
@@ -138,7 +106,6 @@ def calculate_travel_times(trajectory, receiver):
     # Loop through each point in the trajectory
     for point in trajectory:
         xyzS[0], xyzS[1], xyzS[2] = point
-        # print (xyzS[2])
 
         beta, dz = xyz2dec(xyzS,xyzR)
         print(beta,dz)
@@ -150,57 +117,17 @@ def calculate_travel_times(trajectory, receiver):
 
         # xs, ys, zs = geodetic2ecef(xyzS[0], xyzS[1], xyzS[2])
         # xr, yr, zr = geodetic2ecef(xyzR[0], xyzR[1], xyzR[2])
-        xs, ys, zs = geodetic2ecef(xyzS[0], xyzS[1], xyzS[2])
-        xr, yr, zr = geodetic2ecef(xyzR[0], xyzR[1], xyzR[2])
+        xs, ys, zs = xyzS[0], xyzS[1], xyzS[2]
+        xr, yr, zr = xyzR[0], xyzR[1], xyzR[2]
 
         travel_time = np.sqrt((xs-xr)**2+(ys-yr)**2+(zs-zr)**2)/ esv
-        travel_time_cst = np.sqrt((xs-xr)**2+(ys-yr)**2+(zs-zr)**2)/1500
+        travel_time_cst = np.sqrt((xs-xr)**2+(ys-yr)**2+(zs-zr)**2)/1515
         # Append the travel time to the list
         travel_times.append(travel_time)
         travel_times_cst.append(travel_time_cst)
         diff.append(travel_time_cst - travel_time)
 
     return travel_times, travel_times_cst, diff
-
-def filter_outliers(lat, lon, elev, time):
-    '''
-    Filtre les valeurs aberrantes des données de latitude, longitude et élévation.
-
-    Args:
-    lat (array): Données de latitude.
-    lon (array): Données de longitude.
-    elev (array): Données d'élévation.
-
-    Returns:
-    lat_filt (array): Données de latitude filtrées.
-    lon_filt (array): Données de longitude filtrées.
-    elev_filt (array): Données d'élévation filtrées.
-    '''
-    # Calculer Q1 et Q3
-    Q1 = np.percentile(elev, 25)
-    Q3 = np.percentile(elev, 75)
-
-    # Calculer l'IQR
-    IQR = Q3 - Q1
-
-    # Définir les seuils pour filtrer les valeurs aberrantes
-    lower_threshold = Q1 - 1.5 * IQR
-    upper_threshold = Q3 + 1.5 * IQR
-
-    # Filtrer les valeurs aberrantes
-    elev_filt = elev[(elev >= lower_threshold) & (elev <= upper_threshold)]
-    # Filtrer les valeurs correspondantes dans lat et lon
-    lat_filt = lat[(elev >= lower_threshold) & (elev <= upper_threshold)]
-    lon_filt = lon[(elev >= lower_threshold) & (elev <= upper_threshold)]
-    time_filt = time[(elev >= lower_threshold) & (elev <= upper_threshold)]
-
-    trajectory = []
-
-    for i in range (len(elev_filt)):
-        point = (lat_filt[i], lon_filt[i], elev_filt[i])
-        trajectory.append(point)
-
-    return trajectory, time_filt
 
 def filter_outliers_xyz(x, y, z, time):
     '''
@@ -244,13 +171,8 @@ def filter_outliers_xyz(x, y, z, time):
 
 
 if __name__ == '__main__':
-    trajectory_8 = generate_trajectory()
-
     #If we work in geodetic UTM
     xyzR=[1.977967e6, -5.073198e6, 3.3101016e6]
-
-    #If we work in lon,lat,elev
-    # xyzR=[31.47, 291.30, 5200.41]
 
     data_unit = sio.loadmat('../../data/SwiftNav_Data/Unit2-camp_bis.mat')
     # Extraire les variables du fichier
@@ -263,7 +185,33 @@ if __name__ == '__main__':
     y = data_unit['y'].flatten()
     z = data_unit['z'].flatten()
 
-    print(lat, lon, elev, x, y, z)
+
+    # Créer une figure avec deux sous-graphiques côte à côte
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 7))
+
+    # Premier sous-graphique : Visualisation de x, y, z
+    scatter1 = ax1.scatter(x, y, c=z, cmap='viridis', s=10)
+    cbar1 = plt.colorbar(scatter1, ax=ax1)
+    ax1.set_xlabel('X')
+    ax1.set_ylabel('Y')
+    ax1.set_title('Visualisation de la trajectoire 2D (x, y, z)')
+    cbar1.set_label('Z', rotation=270, labelpad=15)
+
+    # Deuxième sous-graphique : Visualisation de lat, lon, elev
+    scatter2 = ax2.scatter(lat, lon, c=elev, cmap='viridis', s=10)
+    cbar2 = plt.colorbar(scatter2, ax=ax2)
+    ax2.set_xlabel('Latitude')
+    ax2.set_ylabel('Longitude')
+    ax2.set_title('Visualisation de la trajectoire 2D (lat, lon, elev)')
+    cbar2.set_label('Elevation', rotation=270, labelpad=15)
+
+    # Ajuster l'espacement entre les sous-graphiques
+    plt.tight_layout()
+
+    # Afficher la figure
+    plt.show()
+
+    print(x, y, z)
 
     days = days - 59015.
 
@@ -273,8 +221,6 @@ if __name__ == '__main__':
         dt = time + day * 24 * 3600
         datetimes.append(dt)
     datetimes = np.array(datetimes)
-    print(datetimes[1])
-
 
     # Filtrer les valeurs aberrantes
     # traj_reel, datetime = filter_outliers(lat, lon, elev, datetimes)
@@ -288,8 +234,16 @@ if __name__ == '__main__':
     plt.scatter((data[:,0]+68056)/3600,np.unwrap(data[:,1]/1e9*2*np.pi)/(2*np.pi), s = 1, label = 'Acoustic')
     print(data[0,0],datetime[0])
     plt.scatter((datetime)/3600, slant_range, s = 1 , label = 'SV GDEM Bermuda')
-    plt.scatter((datetime)/3600, slant_range_cst, s = 1 , label = '1500 m/s')
+    plt.scatter((datetime)/3600, slant_range_cst, s = 1 , label = '1515 m/s')
     plt.ylabel('Time travel (s)')
+    plt.xlabel('time [h]')
+    plt.legend()
+    plt.show()
+
+    plt.figure()
+
+    plt.scatter((datetime)/3600,slant_range_cst-slant_range, s = 1 , label = 'Travel time difference')
+    plt.ylabel('Difference in travel_time (s)')
     plt.xlabel('time [h]')
     plt.legend()
     plt.show()
