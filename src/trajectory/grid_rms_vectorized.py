@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 import scipy.io as sio
 from pymap3d import geodetic2ecef, ecef2geodetic
 import os
-from multiprocessing import Pool
 
 # Load the Earth-to-Space Volume (ESV) matrix from a .mat file
 # Path to the folder containing the .mat file
@@ -20,8 +19,8 @@ angle_array = data['angle'].flatten()
 esv_matrix = data['matrice']
 
 
-def create_grid_around(coord, extension=20.0):
-    step = 10.0 # 1 cm
+def create_grid_around(coord, extension=0.01):
+    step = 0.01 # 1 cm
     range_vals = np.arange(-extension, extension + step, step)
     print(range_vals)
     # Créez une grille 3D
@@ -38,61 +37,50 @@ def create_grid_around(coord, extension=20.0):
     return grid_points
 
 
-# Function to calculate intermediate point between Source (S) and Receiver (R)
-def calculate_intermediate_point(xyzS, xyzR):
+def calculate_intermediate_point_vectorized(xyzS, xyzR):
     """
-    This function calculates the intermediate point coordinates between the source and receiver.
-    Input:
-        xyzS: [lat, lon, alt] of Source
-        xyzR: [lat, lon, alt] of Receiver
-    Output:
-        Intermediate point coordinates
+    Version vectorisée de calculate_intermediate_point
     """
-    # Convert lat, lon, alt to Earth-Centered Earth-Fixed (ECEF) coordinates
-    xs, ys, zs = geodetic2ecef(xyzS[0], xyzS[1], xyzS[2])
-    xr, yr, zr = geodetic2ecef(xyzR[0], xyzR[1], xyzR[2])
+    N = xyzR.shape[0]
+    xyzS_tiled = np.tile(xyzS, (N, 1))
 
-    # Calculate the distance between the source and receiver
+    xs, ys, zs = geodetic2ecef(xyzS_tiled[:, 0], xyzS_tiled[:, 1], xyzS_tiled[:, 2])
+    xr, yr, zr = geodetic2ecef(xyzR[:, 0], xyzR[:, 1], xyzR[:, 2])
+
     d = np.sqrt((xr - xs) ** 2 + (yr - ys) ** 2)
 
-    # Calculate the coordinates of the intermediate point I
     xi = xs + d
     yi = ys
     zi = zr
 
-    xyzI = ecef2geodetic(xi, yi, zr)
+    lat, lon, alt = ecef2geodetic(xi, yi, zi)
 
-    return xyzI
+    return np.stack((lat, lon, alt), axis=-1)
 
-# Function to convert source and receiver coordinates to declination angle and elevation
-def xyz2dec(xyzS, xyzR):
-    '''
-    Inputs:
-    xyzS - Source coordinates [longitude, latitude, altitude]
-    xyzR - Receiver coordinates [longitude, latitude, altitude]
+def xyz2dec_vectorized(xyzS, xyzR):
+    """
+    Version vectorisée de xyz2dec
+    """
+    N = xyzR.shape[0]
+    xyzS_tiled = np.tile(xyzS, (N, 1))
 
-    Outputs:
-    dz - Vertical distance between source and receiver
-    beta - Elevation angle from source to receiver
-    '''
-    elevS=xyzS[2]
-    elevR=xyzR[2]
-    # Calculate the intermediate point coordinates
-    xyzI = calculate_intermediate_point(xyzS, xyzR)
-    xs, ys, zs = geodetic2ecef(xyzS[0], xyzS[1], xyzS[2])
-    xi, yi, zi = geodetic2ecef(xyzI[0], xyzI[1], xyzI[2])
-    # Calculate the vertical distance
-    dz = elevR-elevS
+    elevS = xyzS_tiled[:, 2]
+    elevR = xyzR[:, 2]
 
-    # Calculate the horizontal distance
+    xyzI = calculate_intermediate_point_vectorized(xyzS_tiled, xyzR)
+
+    xs, ys, zs = geodetic2ecef(xyzS_tiled[:, 0], xyzS_tiled[:, 1], xyzS_tiled[:, 2])
+    xi, yi, zi = geodetic2ecef(xyzI[:, 0], xyzI[:, 1], xyzI[:, 2])
+
+    dz = elevR - elevS
     dx = xi - xs
     dy = yi - ys
-    distance_horizontale = np.sqrt(dx**2 + dy**2)
 
-    # Calculate the elevation angle
+    distance_horizontale = np.sqrt(dx**2 + dy**2)
     beta = np.degrees(np.arctan2(dz, distance_horizontale))
 
-    return beta,dz
+    return beta, dz
+
 
 # Function to find closest ESV value based on dz and beta
 def find_esv_grid(dz_array, angle_array, esv_matrix, beta, dz):
@@ -124,7 +112,7 @@ def calculate_travel_times_grid(trajectory, grid_points):
     for j, xyzR in enumerate(grid_points):
         xr, yr, zr = xyzR[0], xyzR[1], xyzR[2]
         for i, point in enumerate(trajectory):
-            beta, dz = xyz2dec(point, xyzR)
+            beta, dz = xyz2dec_vectorized(point, xyzR)
             print(beta,dz)
             esv = find_esv_grid(dz_array, angle_array, esv_matrix, beta, dz)
             xs, ys, zs = geodetic2ecef(point[0], point[1], point[2])
@@ -177,6 +165,33 @@ def calculate_differences(grid_points, lat, lon, elev, time_GNSS, time_DOG, acou
 
     return differences
 
+def calculate_travel_times_grid_vectorized(trajectory, grid_points):
+    traj_array = np.array(trajectory)  # Convertir en NumPy array pour faciliter les opérations
+    betas, dzs = xyz2dec_vectorized(traj_array, grid_points)  # xyz2dec doit être également modifié pour gérer les arrays
+    esvs = find_esv_grid(dz_array, angle_array, esv_matrix, betas, dzs)  # idem pour find_esv_grid
+
+    xs, ys, zs = traj_array[:, 0], traj_array[:, 1], traj_array[:, 2]
+    xrs, yrs, zrs = grid_points[:, 0], grid_points[:, 1], grid_points[:, 2]
+
+    distances = np.sqrt((xs[:, None] - xrs)**2 + (ys[:, None] - yrs)**2 + (zs[:, None] - zrs)**2)
+    travel_times = distances / esvs  # esvs doit avoir la même forme que distances
+
+    return travel_times
+
+def calculate_differences_vectorized(grid_points, lat, lon, elev, time_GNSS, time_DOG, acoustic_DOG):
+    num_grid_points = len(grid_points)
+
+    traj_reel = np.array(GNSS_trajectory([lat], [lon], [elev]))
+
+    interpolated_acoustic_DOG = np.interp(time_GNSS, time_DOG, acoustic_DOG)
+
+    # Utilisez la version vectorisée de calculate_travel_times_grid
+    travel_times = calculate_travel_times_grid_vectorized(traj_reel, grid_points)
+    difference_data = travel_times - interpolated_acoustic_DOG
+    differences = np.sqrt(np.mean(difference_data**2, axis=0))
+
+    return differences
+
 
 if __name__ == '__main__':
     # Vos données et fonctions préliminaires
@@ -209,7 +224,8 @@ if __name__ == '__main__':
     grid_geodetic = np.array(grid_geodetic)  # Convertir en tableau NumPy pour faciliter l'indexation
     print(grid_geodetic)
 
-    differences=(calculate_differences(grid_geodetic, lat, lon, elev, time_GNSS, time_DOG, acoustic_DOG))
+    # differences=(calculate_differences(grid_geodetic, lat, lon, elev, time_GNSS, time_DOG, acoustic_DOG))
+    differences=calculate_differences_vectorized(grid_geodetic, lat, lon, elev, time_GNSS, time_DOG, acoustic_DOG)
     print(differences)
     lat_grid = grid_geodetic[:, 0]
     lon_grid = grid_geodetic[:, 1]
