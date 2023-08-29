@@ -38,13 +38,17 @@ def calculate_intermediate_point(xyzS, xyzR):
     xs, ys, zs = geodetic2ecef(xyzS[0], xyzS[1], xyzS[2])
     xr, yr, zr = geodetic2ecef(xyzR[0], xyzR[1], xyzR[2])
 
-    # Calculate intermediate point (this is simplified and assumes a straight line)
-    xm = (xs + xr) / 2
-    ym = (ys + yr) / 2
-    zm = (zs + zr) / 2
+    # Calculate the distance between the source and receiver
+    d = np.sqrt((xr - xs) ** 2 + (yr - ys) ** 2)
 
-    # Convert back to lat, lon, alt
-    return ecef2geodetic(xm, ym, zm)
+    # Calculate the coordinates of the intermediate point I
+    xi = xs + d
+    yi = ys
+    zi = zr
+
+    xyzI = ecef2geodetic(xi, yi, zr)
+
+    return xyzI
 
 # Function to convert source and receiver coordinates to declination angle and elevation
 def xyz2dec(xyzS, xyzR):
@@ -146,7 +150,6 @@ def calculate_travel_times_optimized(trajectory, xyzR):
 
     for i, point in enumerate(trajectory):
         beta, dz = xyz2dec(point, xyzR)
-        print(beta,dz)
 
         if beta < 0:
             beta = -beta
@@ -214,16 +217,14 @@ def objective_function(xyzR, lat, lon, elev, acoustic_DOG, time_GNSS, time_DOG):
 if __name__ == '__main__':
 
     xyzR = [31.46, 291.31, 5275]
-    xyzR = [  31.46357361,  291.29870318, 5187.34216509]
-    xyzR = [  31.46357361,  291.29870318, 5187.3421122 ]
     #optimal guess
     xyzR = [31.46356378,  291.29858793, 5186.53046237]
     print(geodetic2ecef(31.46356378,  291.29858793, 5186.53046237))
 
 
-    # data_unit = sio.loadmat('../../data/SwiftNav_Data/Unit3-camp_bis.mat')
-    # data_unit = sio.loadmat('../../data/SwiftNav_Data/Average_GPStime_synchro.mat')
-    data_unit = sio.loadmat('../../data/SwiftNav_Data/GPStime_synchro/Unit1-camp_bis_GPStime_synchro.mat')
+    # data_unit = sio.loadmat('../../data/SwiftNav_Data/Unit1-camp_bis.mat') #+65
+    data_unit = sio.loadmat('../../data/SwiftNav_Data/Average_GPStime_synchro.mat')  #+67
+    # data_unit = sio.loadmat('../../data/SwiftNav_Data/GPStime_synchro/Unit1-camp_bis_GPStime_synchro.mat') #+65
 
     days = data_unit['days'].flatten() - 59015
     times = data_unit['times'].flatten()
@@ -242,7 +243,7 @@ if __name__ == '__main__':
     data_DOG = sio.loadmat('../../data/DOG/DOG1-camp.mat')
     data_DOG = data_DOG["tags"].astype(float)
     acoustic_DOG = np.unwrap(data_DOG[:,1]/1e9*2*np.pi)/(2*np.pi)
-    offset = 68056+65
+    offset = 68056+68
     time_DOG = (data_DOG[:,0]+ offset)/3600
     condition_DOG = ((data_DOG[:,0] + offset)/3600 >= 25) & ((data_DOG[:,0] + offset)/3600 <= 40.9)
     time_DOG = time_DOG[condition_DOG]
