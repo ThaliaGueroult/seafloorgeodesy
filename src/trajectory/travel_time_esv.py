@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+# Import required libraries
 import os
 import numpy as np
 import pandas as pd
@@ -10,40 +11,42 @@ import datetime
 import time
 from scipy.optimize import minimize
 
-# Charger la matrice d'esv
+# Load the Earth-to-Space Volume (ESV) matrix from a .mat file
+# Path to the folder containing the .mat file
 folder_path = '../esv/esv_table_without_tol/global_table_interp'
 matrix_file_path = os.path.join(folder_path, 'global_table_esv.mat')
+
+# Load the matrix data
 data = sio.loadmat(matrix_file_path)
 
+# Flatten the arrays for easier manipulation
 dz_array = data['distance'].flatten()
 angle_array = data['angle'].flatten()
 esv_matrix = data['matrice']
 
+# Function to calculate intermediate point between Source (S) and Receiver (R)
 def calculate_intermediate_point(xyzS, xyzR):
-    '''
-    Inputs:
-    xyzS - Source coordinates [longitude, latitude, altitude]
-    xyzR - Receiver coordinates [longitude, latitude, altitude]
-
-    Outputs:
-    xyzI - Intermediate point coordinates [longitude, latitude, altitude]
-    '''
-    # Convert source and receiver coordinates from geodetic to ECEF
+    """
+    This function calculates the intermediate point coordinates between the source and receiver.
+    Input:
+        xyzS: [lat, lon, alt] of Source
+        xyzR: [lat, lon, alt] of Receiver
+    Output:
+        Intermediate point coordinates
+    """
+    # Convert lat, lon, alt to Earth-Centered Earth-Fixed (ECEF) coordinates
     xs, ys, zs = geodetic2ecef(xyzS[0], xyzS[1], xyzS[2])
     xr, yr, zr = geodetic2ecef(xyzR[0], xyzR[1], xyzR[2])
 
-    # Calculate the distance between the source and receiver
-    d = np.sqrt((xr - xs) ** 2 + (yr - ys) ** 2)
+    # Calculate intermediate point (this is simplified and assumes a straight line)
+    xm = (xs + xr) / 2
+    ym = (ys + yr) / 2
+    zm = (zs + zr) / 2
 
-    # Calculate the coordinates of the intermediate point I
-    xi = xs + d
-    yi = ys
-    zi = zr
+    # Convert back to lat, lon, alt
+    return ecef2geodetic(xm, ym, zm)
 
-    xyzI = [xi, yi, zr]
-
-    return xyzI
-
+# Function to convert source and receiver coordinates to declination angle and elevation
 def xyz2dec(xyzS, xyzR):
     '''
     Inputs:
@@ -59,7 +62,7 @@ def xyz2dec(xyzS, xyzR):
     # Calculate the intermediate point coordinates
     xyzI = calculate_intermediate_point(xyzS, xyzR)
     xs, ys, zs = geodetic2ecef(xyzS[0], xyzS[1], xyzS[2])
-    xi, yi, zi = xyzI[0], xyzI[1], xyzI[2]
+    xi, yi, zi = geodetic2ecef(xyzI[0], xyzI[1], xyzI[2])
 
     # Calculate the vertical distance
     dz = elevR-elevS
@@ -70,42 +73,49 @@ def xyz2dec(xyzS, xyzR):
     distance_horizontale = np.sqrt(dx**2 + dy**2)
 
     # Calculate the elevation angle
-    beta = beta = np.degrees(np.arctan2(dz, distance_horizontale))
+    beta = math.degrees(math.atan2(dz, distance_horizontale))
 
-    return dz, beta
+    return beta,dz
 
+# Function to generate a sinusoidal trajectory for the source
 def generate_trajectory():
-    '''
-    Generate a trajectory in the shape of an "8" with varying altitude.
-
-    Returns:
-    trajectory (list): List of tuples representing the trajectory points in the format (latitude, longitude, altitude).
-    '''
-
+    """
+    This function generates a sinusoidal trajectory for the source.
+    Output:
+        Returns a DataFrame containing the trajectory
+    """
+    # Define parameters for the sinusoidal trajectory
     lat_center = 31.45
     lon_center = 291.30
-    lat_radius = 0.1
-    lon_radius = 0.1
-    num_points = 10000  # Number of points on the trajectory
+    elev_center = 5000
+    amplitude = 1000
+    period = 360
 
-    trajectory = []
+    # Generate the trajectory
+    time = np.linspace(0, 360, 361)
+    lat_traj = lat_center + amplitude * np.sin(np.radians(time))
+    lon_traj = lon_center + amplitude * np.sin(np.radians(time))
+    elev_traj = elev_center + amplitude * np.sin(np.radians(time))
 
-    for i in range(num_points):
-        t = float(i) / (num_points - 1)  # Normalized value between 0 and 1
-        angle = t * 2 * math.pi
-
-        lat = lat_center + lat_radius * math.sin(angle)
-        lon = lon_center + lon_radius * math.sin(2 * angle)
-        elev = 5 * math.sin(angle)  # Sinusoidal altitude between -5 m and 5 m
-
-        point = (lat, lon, elev)
-        trajectory.append(point)
+    # Create a DataFrame to hold the trajectory
+    trajectory = pd.DataFrame({'Time': time, 'Latitude': lat_traj, 'Longitude': lon_traj, 'Elevation': elev_traj})
 
     return trajectory
 
-
+# Function to find closest ESV value based on dz and beta
 def find_esv(dz_array, angle_array, esv_matrix, beta, dz):
-    # Trouvez l'indice le plus proche pour dz et beta
+    """
+    This function finds the closest ESV value given dz and beta.
+    Input:
+        dz_array: array of dz values from the ESV matrix
+        angle_array: array of beta values from the ESV matrix
+        esv_matrix: the ESV matrix
+        beta: the calculated beta
+        dz: the calculated dz
+    Output:
+        The closest ESV value
+    """
+    # Locate the closest dz and beta index
     idx_closest_dz = np.argmin(np.abs(dz_array - dz))
     idx_closest_beta = np.argmin(np.abs(angle_array - beta))
 
@@ -113,93 +123,16 @@ def find_esv(dz_array, angle_array, esv_matrix, beta, dz):
     closest_esv = esv_matrix[idx_closest_dz, idx_closest_beta]
     return closest_esv
 
-
-def calculate_travel_times(trajectory, receiver):
+#
+def calculate_travel_times_optimized(trajectory, xyzR):
     '''
     Calculate the travel times from each point in the trajectory to the receiver.
 
     Args:
     trajectory (list): List of tuples representing the trajectory points in the format (latitude, longitude, altitude).
     receiver (tuple): Tuple representing the coordinates of the receiver in the format (latitude, longitude, elevation).
-    dz (float): Vertical distance between receiver and each point in the trajectory.
-    esv_func (function): A function that takes beta (elevation angle) and dz (vertical distance) as inputs and returns the ESV value.
-
     Returns:
     travel_times (list): List of travel times in seconds for each point in the trajectory.
-    '''
-
-    travel_times = []
-    travel_times_cst = []
-    diff = []
-    xyzS = [0,0,0]
-
-    # Loop through each point in the trajectory
-    for point in trajectory:
-        xyzS[0], xyzS[1], xyzS[2] = point
-
-        beta, dz = xyz2dec(xyzS,xyzR)
-
-        if beta < 0 :
-            beta = - beta
-
-        esv = find_esv(beta, dz)
-
-        xs, ys, zs = geodetic2ecef(xyzS[0], xyzS[1], xyzS[2])
-        xr, yr, zr = geodetic2ecef(xyzR[0], xyzR[1], xyzR[2])
-
-        travel_time = np.sqrt((xs-xr)**2+(ys-yr)**2+(zs-zr)**2) / esv
-        travel_time_cst = np.sqrt((xs-xr)**2+(ys-yr)**2+(zs-zr)**2) / 1500
-        # Append the travel time to the list
-        travel_times.append(travel_time)
-        travel_times_cst.append(travel_time_cst)
-        diff.append(travel_time_cst - travel_time)
-
-    return travel_times, travel_times_cst, diff
-
-def filter_outliers(lat, lon, elev, time):
-    '''
-    Filtre les valeurs aberrantes des données de latitude, longitude et élévation.
-
-    Args:
-    lat (array): Données de latitude.
-    lon (array): Données de longitude.
-    elev (array): Données d'élévation.
-
-    Returns:
-    lat_filt (array): Données de latitude filtrées.
-    lon_filt (array): Données de longitude filtrées.
-    elev_filt (array): Données d'élévation filtrées.
-    '''
-    # Calculer Q1 et Q3
-    Q1 = np.percentile(elev, 25)
-    Q3 = np.percentile(elev, 75)
-
-    # Calculer l'IQR
-    IQR = Q3 - Q1
-
-    # Définir les seuils pour filtrer les valeurs aberrantes
-    lower_threshold = Q1 - 1.5 * IQR
-    upper_threshold = Q3 + 1.5 * IQR
-
-    # Filtrer les valeurs aberrantes
-    elev_filt = elev[(elev >= lower_threshold) & (elev <= upper_threshold)]
-    # Filtrer les valeurs correspondantes dans lat et lon
-    lat_filt = lat[(elev >= lower_threshold) & (elev <= upper_threshold)]
-    lon_filt = lon[(elev >= lower_threshold) & (elev <= upper_threshold)]
-    time_filt = time[(elev >= lower_threshold) & (elev <= upper_threshold)]
-
-    trajectory = []
-
-    for i in range (len(elev_filt)):
-        point = (lat_filt[i], lon_filt[i], elev_filt[i])
-        trajectory.append(point)
-
-    return trajectory, time_filt
-
-
-def calculate_travel_times_optimized(trajectory, xyzR):
-    '''
-    Calculate the travel times from each point in the trajectory to the receiver using optimization techniques.
     '''
 
     # Preallocate arrays for speed
@@ -208,11 +141,12 @@ def calculate_travel_times_optimized(trajectory, xyzR):
     travel_times_cst = np.zeros(num_points)
     diff = np.zeros(num_points)
 
-    # Convert xyzR once since it's constant
+    # # Convert xyzR from geodetic (lat,lon,elev) to ECEF
     xr, yr, zr = geodetic2ecef(xyzR[0], xyzR[1], xyzR[2])
 
     for i, point in enumerate(trajectory):
         beta, dz = xyz2dec(point, xyzR)
+        print(beta,dz)
 
         if beta < 0:
             beta = -beta
@@ -228,11 +162,43 @@ def calculate_travel_times_optimized(trajectory, xyzR):
         diff[i] = travel_time_cst - travel_time
 
     return travel_times, travel_times_cst, diff
+#
+# def calculate_travel_times_optimized(trajectory, xyzR):
+#     # Convert input to numpy arrays for vectorization
+#     trajectory = np.array(trajectory)
+#     xyzR = np.array(xyzR)
+#
+#     # # Convert xyzR once since it's constant
+#     # xr, yr, zr = geodetic2ecef(xyzR[0], xyzR[1], xyzR[2])
+#     #
+#     # # Convert all trajectory points from geodetic to ECEF
+#     # xs, ys, zs = geodetic2ecef(trajectory[:, 0], trajectory[:, 1], trajectory[:, 2])
+#
+#     # Calculate beta, dz for all points
+#     beta, dz = xyz2dec(trajectory, xyzR)
+#
+#     # Use absolute value for beta
+#     beta = np.abs(beta)
+#
+#     # Find esv values for all points
+#     esv = find_esv(dz_array, angle_array, esv_matrix, beta, dz)
+#
+#     # Calculate the repeated term
+#     repeated_term = np.sqrt((xs - xr)**2 + (ys - yr)**2 + (zs - zr)**2)
+#
+#     # Calculate travel times
+#     travel_times = repeated_term / esv
+#     travel_times_cst = repeated_term / 1515
+#
+#     # Calculate differences
+#     diff = travel_times_cst - travel_times
+#
+#     return travel_times, travel_times_cst, diff
+
 
 def GNSS_trajectory(lat, lon, elev):
     trajectory = list(zip(lat, lon, elev))
     return trajectory
-
 
 def objective_function(xyzR, lat, lon, elev, acoustic_DOG, time_GNSS, time_DOG):
     traj_reel = GNSS_trajectory(lat, lon, elev)
@@ -240,7 +206,7 @@ def objective_function(xyzR, lat, lon, elev, acoustic_DOG, time_GNSS, time_DOG):
 
     # Interpoler acoustic_DOG pour les horodatages time_GNSS
     interpolated_acoustic_DOG = np.interp(time_GNSS, time_DOG, acoustic_DOG)
-    print(xyzR)
+
     # Calculer la somme des carrés des différences
     return np.sum((slant_range - interpolated_acoustic_DOG)**2)
 
@@ -257,7 +223,7 @@ if __name__ == '__main__':
 
     # data_unit = sio.loadmat('../../data/SwiftNav_Data/Unit3-camp_bis.mat')
     # data_unit = sio.loadmat('../../data/SwiftNav_Data/Average_GPStime_synchro.mat')
-    data_unit = sio.loadmat('../../data/SwiftNav_Data/GPStime_synchro/Unit3-camp_bis_GPStime_synchro.mat')
+    data_unit = sio.loadmat('../../data/SwiftNav_Data/GPStime_synchro/Unit1-camp_bis_GPStime_synchro.mat')
 
     days = data_unit['days'].flatten() - 59015
     times = data_unit['times'].flatten()
@@ -276,7 +242,7 @@ if __name__ == '__main__':
     data_DOG = sio.loadmat('../../data/DOG/DOG1-camp.mat')
     data_DOG = data_DOG["tags"].astype(float)
     acoustic_DOG = np.unwrap(data_DOG[:,1]/1e9*2*np.pi)/(2*np.pi)
-    offset = 68056+65.1
+    offset = 68056+65
     time_DOG = (data_DOG[:,0]+ offset)/3600
     condition_DOG = ((data_DOG[:,0] + offset)/3600 >= 25) & ((data_DOG[:,0] + offset)/3600 <= 40.9)
     time_DOG = time_DOG[condition_DOG]
