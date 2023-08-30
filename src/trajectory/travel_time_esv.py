@@ -109,7 +109,7 @@ def xyz2dec(xyzS, xyzR):
 
     # Calculate the elevation angle
     beta = np.degrees(np.arctan2(dz, dh))
-
+    beta = np.abs(beta)
     return beta,dz
 
 # Function to find closest ESV value based on dz and beta
@@ -145,23 +145,21 @@ def calculate_travel_times_optimized(trajectory, xyzR):
             travel_times_cst (list) : List of travel times in seconds for each point in the trajectory using a constant velocity
             diff (list) : diff between travel_time and travel_time_cst
         '''
-    num_points = len(trajectory)
-    trajectory = np.array(trajectory)
+        num_points = len(trajectory)
+        trajectory = np.array(trajectory)
 
-    beta, dz = xyz2dec(trajectory, xyzR)
-    beta = np.abs(beta)
-    xr, yr, zr = geodetic2ecef(xyzR[0], xyzR[1], xyzR[2])
-    xs, ys, zs = geodetic2ecef(trajectory[:, 0], trajectory[:, 1], trajectory[:, 2])
-    esv = find_esv(dz_array, angle_array, esv_matrix, beta, dz)  # Update this function to handle arrays
+        beta, dz = xyz2dec(trajectory, xyzR)
+        xr, yr, zr = geodetic2ecef(xyzR[0], xyzR[1], xyzR[2])
+        xs, ys, zs = geodetic2ecef(trajectory[:, 0], trajectory[:, 1], trajectory[:, 2])
+        esv = find_esv(dz_array, angle_array, esv_matrix, beta, dz)  # Update this function to handle arrays
 
-    distances_squared = (xs - xr)**2 + (ys - yr)**2 + (zs - zr)**2
-    travel_times = np.sqrt(distances_squared) / esv
-    travel_times_cst = np.sqrt(distances_squared) / 1515
+        distances_squared = (xs - xr)**2 + (ys - yr)**2 + (zs - zr)**2
+        travel_times = np.sqrt(distances_squared) / esv
+        travel_times_cst = np.sqrt(distances_squared) / 1515
 
-    diff = travel_times_cst - travel_times
+        diff = travel_times_cst - travel_times
 
-    return travel_times, travel_times_cst, diff
-
+        return travel_times, travel_times_cst, diff
 
 def GNSS_trajectory(lat, lon, elev):
     trajectory = list(zip(lat, lon, elev))
@@ -180,13 +178,20 @@ def objective_function(xyzR, lat, lon, elev, acoustic_DOG, time_GNSS, time_DOG):
 
 if __name__ == '__main__':
 
-    xyzR = [31.46, 291.31, 5275]
-    #optimal guess
-    xyzR = [31.46356378,  291.29858793, 5186.53046237]
+    # xyzR = [31.46, 291.31, 5275]
+    #optimal guess for DOG1
+    xyzR =  [  31.46356396,  291.2985875,  5190.77000034] #GNSS1
+    # xyzR = [31.46355667,291.29858588, 5189.86379623] #GNSS2
+    # xyzR = [31.4635628, 291.29857683, 5189.23243428] #GNSS3
+    # xyzR = [31.46357218, 291.29857935, 5190.46271844] #GNSS4
+
     print(geodetic2ecef(31.46356378,  291.29858793, 5186.53046237))
 
 
     data_unit = sio.loadmat('../../data/SwiftNav_Data/Unit1-camp_bis.mat') #+65
+    # data_unit = sio.loadmat('../../data/SwiftNav_Data/Unit2-camp_bis.mat') #+65
+    # data_unit = sio.loadmat('../../data/SwiftNav_Data/Unit3-camp_bis.mat') #+70
+    # data_unit = sio.loadmat('../../data/SwiftNav_Data/Unit4-camp_bis.mat') #+70
     # data_unit = sio.loadmat('../../data/SwiftNav_Data/Average_GPStime_synchro.mat')  #+67
     # data_unit = sio.loadmat('../../data/SwiftNav_Data/GPStime_synchro/Unit1-camp_bis_GPStime_synchro.mat') #+65
 
@@ -203,13 +208,11 @@ if __name__ == '__main__':
     lon = lon[condition_gnss]
     elev = elev[condition_gnss]
     traj_reel = GNSS_trajectory(lat, lon, elev)
-    t = time.time()
     slant_range, slant_range_cst, difference = calculate_travel_times_optimized(traj_reel, xyzR)
-    print(time.time()-t)
     data_DOG = sio.loadmat('../../data/DOG/DOG1-camp.mat')
     data_DOG = data_DOG["tags"].astype(float)
     acoustic_DOG = np.unwrap(data_DOG[:,1]/1e9*2*np.pi)/(2*np.pi)
-    offset = 68056+65
+    offset = 68056+66
     time_DOG = (data_DOG[:,0]+ offset)/3600
     condition_DOG = ((data_DOG[:,0] + offset)/3600 >= 25) & ((data_DOG[:,0] + offset)/3600 <= 40.9)
     time_DOG = time_DOG[condition_DOG]
@@ -233,17 +236,6 @@ if __name__ == '__main__':
     valid_data_indices = ~np.isnan(slant_range[valid_GNSS_indices])
     difference_data = slant_range[valid_GNSS_indices][valid_data_indices] - interpolated_acoustic_DOG[valid_data_indices]
     print(np.sqrt(np.mean(difference_data**2)))
-
-
-
-
-    # plt.scatter(time_GNSS, difference_data, s = 1, label = 'Difference (slant_range - acoustic_DOG)')
-
-    # plt.ylabel('Time travel (s)')
-    # plt.xlabel('time [h]')
-    # plt.xlim(25, 41)
-    # plt.legend()
-    # plt.show()
 
 
     # Première figure
@@ -314,8 +306,8 @@ if __name__ == '__main__':
     # plt.show()
     #
     #
-    # # initial_guess = [31.45, 291.32, 5225]
-    # # result = minimize(objective_function, initial_guess, args=(lat, lon, elev, acoustic_DOG, time_GNSS, time_DOG))
-    # #
-    # # optimal_xyzR = result.x
-    # # print("Optimal xyzR:", optimal_xyzR)
+    # initial_guess = [31.45, 291.32, 5225]
+    # result = minimize(objective_function, initial_guess, args=(lat, lon, elev, acoustic_DOG, time_GNSS, time_DOG))
+    #
+    # optimal_xyzR = result.x
+    # print("Optimal xyzR:", optimal_xyzR)
