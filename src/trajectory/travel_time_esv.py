@@ -23,67 +23,7 @@ data = sio.loadmat(matrix_file_path)
 dz_array = data['distance'].flatten()
 angle_array = data['angle'].flatten()
 esv_matrix = data['matrice']
-
-# Function to calculate intermediate point between Source (S) and Receiver (R)
-def calculate_intermediate_point(xyzS, xyzR):
-    """
-    This function calculates the intermediate point coordinates between the source and receiver.
-    Input:
-        xyzS: [lat, lon, alt] of Source
-        xyzR: [lat, lon, alt] of Receiver
-    Output:
-        xyzI: [lat, lon, alt] Intermediate point coordinates
-        This is a point used to compute beta and dz in 2D
-    """
-    # Convert lat, lon, alt to Earth-Centered Earth-Fixed (ECEF) coordinates
-    print(xyzS[:,0], xyzS[:,1], xyzS[:,2])
-    xs, ys, zs = geodetic2ecef(xyzS[:,0], xyzS[:,1], xyzS[:,2])
-    xr, yr, zr = geodetic2ecef(xyzR[0], xyzR[1], xyzR[2])
-
-    # Calculate the distance between the source and receiver
-    d = np.sqrt((xr - xs) ** 2 + (yr - ys) ** 2)
-
-    # Calculate the coordinates of the intermediate point I
-    xi = xs + d
-    yi = ys
-    zi = zr
-
-    xyzI = ecef2geodetic(xi, yi, zr)
-
-    return xyzI
-
-# Function to convert source and receiver coordinates to declination angle and elevation
-def xyz2dec_init(xyzS, xyzR):
-    '''
-    Inputs:
-    xyzS - Source coordinates [longitude, latitude, altitude]
-    xyzR - Receiver coordinates [longitude, latitude, altitude]
-
-    Outputs:
-    dz - Vertical distance between source and receiver (m)
-    beta - Elevation angle from source to receiver (°)
-    '''
-    elevS=xyzS[2]
-    elevR=xyzR[2]
-    # Calculate the intermediate point coordinates
-    xyzI = calculate_intermediate_point(xyzS, xyzR)
-    xs, ys, zs = geodetic2ecef(xyzS[:,0], xyzS[:,1], xyzS[:,2])
-    xi, yi, zi = geodetic2ecef(xyzI[0], xyzI[1], xyzI[2])
-
-    # Calculate the vertical distance
-    dz1 = elevR-elevS
-    dz2 = zi - zs
-    print(dz1,dz2)
-
-    # Calculate the horizontal distance
-    dx = xi - xs
-    dy = yi - ys
-    distance_horizontale = np.sqrt(dx**2 + dy**2)
-
-    # Calculate the elevation angle
-    beta = np.degrees(np.arctan2(dz, distance_horizontale))
-
-    return beta,dz
+print(esv_matrix.shape)
 
 # Function to convert source and receiver coordinates to declination angle and elevation
 def xyz2dec(xyzS, xyzR):
@@ -165,117 +105,148 @@ def GNSS_trajectory(lat, lon, elev):
     trajectory = list(zip(lat, lon, elev))
     return trajectory
 
-def objective_function(xyzR, lat, lon, elev, acoustic_DOG, time_GNSS, time_DOG):
+def objective_function(xyzR, traj_reel, valid_acoustic_DOG, time_GNSS):
+    # Generate the new slant_range based on current xyzR
+    slant_range, _, _ = calculate_travel_times_optimized(traj_reel, xyzR)
+
+    # Calculate the difference
+    difference_data = slant_range - valid_acoustic_DOG
+
+    # Calculate the sum of squares of the differences
+    result = np.sqrt(np.nanmean(difference_data**2))
+
+    # Print the result for debugging
+    print("Result:", result)
+
+    return result
+
+def plot_unit_data(unit_number):
+    # Initialize unit-specific configurations
+    xyzR_list = [
+        [31.46356973, 291.29859242, 5191.15569819],  # Unit 1
+        [31.46356189, 291.29859139, 5190.50899803],  # Unit 2
+        [31.46356844, 291.29858342, 5189.94309155],  # Unit 3
+        [31.46357847, 291.29858509, 5190.81298335],   # Unit 4
+        [31.46356976, 291.29858848, 5190.53628934]   # Unit 5, average
+    ]
+    offsets = [68121, 68121, 68126, 68126, 68124]
+
+    # Fetch unit-specific configurations
+    xyzR = xyzR_list[unit_number - 1]
+    offset = offsets[unit_number - 1]
+
+    print(f'Processing Unit {unit_number}')
+
+    # Load GNSS data
+    mat_file_path = f'../../data/SwiftNav_Data/Unit{unit_number}-camp_bis.mat'
+    data_unit = sio.loadmat(mat_file_path)
+    days = data_unit['days'].flatten() - 59015
+    times = data_unit['times'].flatten()
+    datetimes = (days * 24 * 3600) + times
+    condition_gnss = (datetimes / 3600 >=31.056) & (datetimes / 3600 <= 31.066)
+    time_GNSS = datetimes[condition_gnss] / 3600
+    lat, lon, elev = data_unit['lat'].flatten()[condition_gnss], data_unit['lon'].flatten()[condition_gnss], data_unit['elev'].flatten()[condition_gnss]
+
+    # Loading GNSS trajectory and computing slant_range time
     traj_reel = GNSS_trajectory(lat, lon, elev)
     slant_range, _, _ = calculate_travel_times_optimized(traj_reel, xyzR)
 
-    # Interpoler acoustic_DOG pour les horodatages time_GNSS
-    interpolated_acoustic_DOG = np.interp(time_GNSS, time_DOG, acoustic_DOG)
+    # Load DOG data and apply conditions
+    data_DOG = sio.loadmat('../../data/DOG/DOG1-camp.mat')['tags'].astype(float)
+    acoustic_DOG = np.unwrap(data_DOG[:, 1] / 1e9 * 2 * np.pi) / (2 * np.pi)
+    time_DOG = (data_DOG[:, 0] + offset) / 3600
+    condition_DOG = (time_DOG >= 31.056) & (time_DOG <= 31.066)
+    time_DOG, acoustic_DOG = time_DOG[condition_DOG], acoustic_DOG[condition_DOG]
 
-    # Calculer la somme des carrés des différences
-    return np.sum((slant_range - interpolated_acoustic_DOG)**2)
+    # Initialize array to hold valid DOG data matching GNSS timestamps
+    valid_acoustic_DOG = np.full(time_GNSS.shape, np.nan)
+    common_indices = np.isin(time_GNSS, time_DOG)
+    indices_in_DOG = np.searchsorted(time_DOG, time_GNSS[common_indices])
+    valid_acoustic_DOG[common_indices] = acoustic_DOG[indices_in_DOG]
+
+    # Calculate differences and RMS
+    difference_data = slant_range - valid_acoustic_DOG
+    RMS = np.sqrt(np.nanmean(difference_data ** 2))
+    print(f'\n RMS: {RMS} s')
+
+  # Prepare label and plot
+    label_text = f"Antenna: {unit_number}, Lat: {xyzR[1]}, Lon: {xyzR[0]}, elev: {xyzR[2]}, RMS: {RMS} s"
+    fig, axes = plt.subplots(3, 2, figsize=(15, 15), gridspec_kw={'width_ratios': [1, 4], 'height_ratios': [4, 1, 4]})
+    fig.suptitle(f'Comparison of GNSS estimation and raw DOG data, Antenna {unit_number}', y=0.92)
+
+    # Acoustic vs GNSS plot
+    axes[0, 1].scatter(time_DOG, acoustic_DOG, s=20, label='Acoustic data DOG', alpha=0.6, marker='o', color='b', zorder=2)
+    axes[0, 1].scatter(time_GNSS, slant_range, s=30, label='GNSS estimation', alpha=1, marker='x', color='r', zorder=1)
+    axes[0, 1].set_ylabel('Travel Time (s)')
+    axes[0, 1].set_xlabel('Time [h]')
+    axes[0, 1].text(25, max(acoustic_DOG), label_text, bbox=dict(facecolor='yellow', alpha=0.8))
+    axes[0, 1].legend()
+
+    # Difference plot
+    axes[1, 1].scatter(time_GNSS, difference_data*1e3, s=30)
+    axes[1, 1].set_xlabel('Time [h]')
+    axes[1, 1].set_title('Difference between acoustic Data and GNSS estimation')
+    axes[1, 1].legend()
+
+    # Histogram
+    axes[1, 0].hist(difference_data*1e3, orientation='horizontal', bins=30, alpha=0.5)
+    axes[1, 0].set_ylabel('Difference (ms)')
+    axes[1, 0].set_xlabel('Frequency')
+    axes[1, 0].invert_xaxis()
+
+    # New elevation plot
+    axes[2, 1].scatter(time_GNSS, elev, s=30, label='Elevation data', alpha=0.6, marker='o', color='g')
+    axes[2, 1].set_ylabel('Elevation (m)')
+    axes[2, 1].set_xlabel('Time [h]')
+    axes[2, 1].legend()
+
+    # Turn off unused axes
+    axes[0, 0].axis('off')
+    axes[2, 0].axis('off')
+
+    plt.show()
+
+def durbin_watson(residuals):
+    # Supprimer les NaN des résidus
+    residuals = residuals[~np.isnan(residuals)]
+
+    # Différencier et carré, en gérant les NaN de manière sécurisée
+    diffs = np.diff(residuals)
+    nume = np.nansum(diffs**2)
+
+    # Somme des carrés des résidus
+    deno = np.nansum(residuals**2)
+
+    # Calculer la statistique de Durbin-Watson
+    return nume / deno
 
 
 if __name__ == '__main__':
 
-    # xyzR = [31.46, 291.31, 5275]
-    #optimal guess for DOG1
-    xyzR =  [  31.46356396,  291.2985875,  5190.77000034] #GNSS1
-    # xyzR = [31.46355667,291.29858588, 5189.86379623] #GNSS2
-    # xyzR = [31.4635628, 291.29857683, 5189.23243428] #GNSS3
-    # xyzR = [31.46357218, 291.29857935, 5190.46271844] #GNSS4
+    # Exemple d'utilisation
+    plot_unit_data(4)
 
-    print(geodetic2ecef(31.46356378,  291.29858793, 5186.53046237))
-
-
-    data_unit = sio.loadmat('../../data/SwiftNav_Data/Unit1-camp_bis.mat') #+65
-    # data_unit = sio.loadmat('../../data/SwiftNav_Data/Unit2-camp_bis.mat') #+65
-    # data_unit = sio.loadmat('../../data/SwiftNav_Data/Unit3-camp_bis.mat') #+70
-    # data_unit = sio.loadmat('../../data/SwiftNav_Data/Unit4-camp_bis.mat') #+70
-    # data_unit = sio.loadmat('../../data/SwiftNav_Data/Average_GPStime_synchro.mat')  #+67
-    # data_unit = sio.loadmat('../../data/SwiftNav_Data/GPStime_synchro/Unit1-camp_bis_GPStime_synchro.mat') #+65
-
-    days = data_unit['days'].flatten() - 59015
-    times = data_unit['times'].flatten()
-    datetimes = (days * 24 * 3600) + times
-    condition_gnss = (datetimes/3600 >= 25) & (datetimes/3600 <= 40.9)
-    time_GNSS = datetimes[condition_gnss]/3600
-
-    lat = data_unit['lat'].flatten()
-    lon = data_unit['lon'].flatten()
-    elev = data_unit['elev'].flatten()
-    lat = lat[condition_gnss]
-    lon = lon[condition_gnss]
-    elev = elev[condition_gnss]
-    traj_reel = GNSS_trajectory(lat, lon, elev)
-    slant_range, slant_range_cst, difference = calculate_travel_times_optimized(traj_reel, xyzR)
-    data_DOG = sio.loadmat('../../data/DOG/DOG1-camp.mat')
-    data_DOG = data_DOG["tags"].astype(float)
-    acoustic_DOG = np.unwrap(data_DOG[:,1]/1e9*2*np.pi)/(2*np.pi)
-    offset = 68056+66
-    time_DOG = (data_DOG[:,0]+ offset)/3600
-    condition_DOG = ((data_DOG[:,0] + offset)/3600 >= 25) & ((data_DOG[:,0] + offset)/3600 <= 40.9)
-    time_DOG = time_DOG[condition_DOG]
-    acoustic_DOG = acoustic_DOG[condition_DOG]
-
-    # Supprime les 'nan' de time_DOG et acoustic_DOG
-    valid_DOG_indices = ~np.isnan(time_DOG) & ~np.isnan(acoustic_DOG)
-    time_DOG_clean = time_DOG[valid_DOG_indices]
-    acoustic_DOG_clean = acoustic_DOG[valid_DOG_indices]
-
-    # Supprime les 'nan' de time_GNSS
-    valid_GNSS_indices = ~np.isnan(time_GNSS)
-    time_GNSS_clean = time_GNSS[valid_GNSS_indices]
-
-    # Interpoler acoustic_DOG_clean sur time_GNSS_clean
-    interpolated_acoustic_DOG = np.interp(time_GNSS_clean, time_DOG_clean, acoustic_DOG_clean)
-
-    # Calculer la différence pour ces indices valides
-    difference_data = slant_range[valid_GNSS_indices] - interpolated_acoustic_DOG
-
-    valid_data_indices = ~np.isnan(slant_range[valid_GNSS_indices])
-    difference_data = slant_range[valid_GNSS_indices][valid_data_indices] - interpolated_acoustic_DOG[valid_data_indices]
-    print(np.sqrt(np.mean(difference_data**2)))
-
-
-    # Première figure
-    plt.figure(figsize=(10, 8))  # Ajustez la taille de la fenêtre si nécessaire
-
-    # Graphique du haut (Acoustic vs SV GDEM Bermuda)
-    plt.subplot(2, 1, 1)  # 2 lignes, 1 colonne, 1ère figure
-    plt.scatter(time_DOG, acoustic_DOG, s = 3, label = 'Acoustic')
-    plt.scatter(time_GNSS, slant_range, s = 1 , label = 'SV Bermuda')
-    plt.ylabel('Time travel (s)')
-    plt.xlabel('time [h]')
-    plt.xlim(25, 41)
-    plt.legend()
-
-    # Graphique du bas (Différence)
-    plt.subplot(2, 1, 2)  # 2 lignes, 1 colonne, 2ème figure
-    interpolated_acoustic_DOG = np.interp(time_GNSS, time_DOG, acoustic_DOG)
-    difference_data = slant_range - interpolated_acoustic_DOG
-    print(np.sqrt(np.mean(difference_data**2)))
-    plt.scatter(time_GNSS, difference_data, s = 1, label = 'Difference (slant_range - acoustic_DOG)')
-    plt.ylabel('Time travel (s)')
-    plt.xlabel('time [h]')
-    plt.xlim(25, 41)
-    plt.legend()
-
-    # Afficher les graphiques
-    plt.tight_layout()  # Assure que les étiquettes et les titres ne se chevauchent pas
-    plt.show()
-
-
-
-    # '''Pour le troisième dog'''
-    # xyzR = [31.45, 291.32, 4000]
-    # xyzR = [31.44955433,  291.30765693, 3162.54807501]
-    # data_unit = sio.loadmat('../../data/SwiftNav_Data/Unit1-camp_bis.mat')
+    # # # xyzR = [31.46, 291.31, 5275]
+    # # #optimal guess for DOG1
+    # # # xyzR =   [  31.46356973,  291.29859242, 5191.15569819] #GNSS1
+    # # # xyzR = [  31.46356189,  291.29859139, 5190.50899803] #GNSS2
+    # # # xyzR = [  31.46356844,  291.29858342, 5189.94309155] #GNSS3
+    # # xyzR = [  31.46357847,  291.29858509, 5190.81298335] #GNSS4
+    # xyzR = [  31.46356976,  291.29858848, 5190.53628934] # Average
+    # #
+    # # print('Unit4')
+    # # data_unit = sio.loadmat('../../data/SwiftNav_Data/Unit1-camp_bis.mat') #+65
+    # # data_unit = sio.loadmat('../../data/SwiftNav_Data/Unit2-camp_bis.mat') #+65
+    # # data_unit = sio.loadmat('../../data/SwiftNav_Data/Unit3-camp_bis.mat') #+70
+    # # data_unit = sio.loadmat('../../data/SwiftNav_Data/Unit4-camp_bis.mat') #+70
+    # data_unit = sio.loadmat('../../data/SwiftNav_Data/Unit5-camp_bis.mat')  #+68
+    # # # data_unit = sio.loadmat('../../data/SwiftNav_Data/GPStime_synchro/Unit1-camp_bis_GPStime_synchro.mat') #+65
     #
     # days = data_unit['days'].flatten() - 59015
     # times = data_unit['times'].flatten()
+    # print(times)
     # datetimes = (days * 24 * 3600) + times
-    # condition_gnss = (datetimes/3600 >= 25) & (datetimes/3600 <= 41)
+    # condition_gnss = (datetimes/3600 >= 25) & (datetimes/3600 <= 40.9)
     # time_GNSS = datetimes[condition_gnss]/3600
     #
     # lat = data_unit['lat'].flatten()
@@ -285,29 +256,81 @@ if __name__ == '__main__':
     # lon = lon[condition_gnss]
     # elev = elev[condition_gnss]
     # traj_reel = GNSS_trajectory(lat, lon, elev)
-    #
     # slant_range, slant_range_cst, difference = calculate_travel_times_optimized(traj_reel, xyzR)
-    #
-    # data_DOG = sio.loadmat('../../data/DOG/DOG3-camp.mat')
+    # data_DOG = sio.loadmat('../../data/DOG/DOG1-camp.mat')
     # data_DOG = data_DOG["tags"].astype(float)
     # acoustic_DOG = np.unwrap(data_DOG[:,1]/1e9*2*np.pi)/(2*np.pi)
-    # offset3 = 68625-1700
-    # time_DOG = (data_DOG[:,0]+offset3)/3600
-    # condition_DOG = ((data_DOG[:,0]+offset3)/3600 >= 25) & ((data_DOG[:,0]+offset3)/3600 <= 41)
+    # offset = 68056+68
+    # time_DOG = (data_DOG[:,0]+ offset)/3600
+    # condition_DOG = ((data_DOG[:,0] + offset)/3600 >= 25) & ((data_DOG[:,0] + offset)/3600 <= 40.9)
     # time_DOG = time_DOG[condition_DOG]
     # acoustic_DOG = acoustic_DOG[condition_DOG]
     #
-    # plt.scatter(time_DOG, acoustic_DOG, s = 1, label = 'Acoustic')
-    # plt.scatter(time_GNSS, slant_range, s = 1 , label = 'SV GDEM Bermuda')
-    # # plt.scatter(time_GNSS, slant_range_cst, s = 1 , label = '1500 m/s')
-    # plt.ylabel('Time travel (s)')
-    # plt.xlabel('time [h]')
-    # plt.legend()
+    # # Create an array of 'nan' values the same length as time_GNSS
+    # valid_acoustic_DOG = np.full(time_GNSS.shape, np.nan)
+    #
+    # # Find indices where time_GNSS and time_DOG have matching timestamps
+    # common_indices = np.isin(time_GNSS, time_DOG)
+    #
+    # # Find the corresponding indices in time_DOG for the common times
+    # indices_in_DOG = np.searchsorted(time_DOG, time_GNSS[common_indices])
+    #
+    # # Fill valid_acoustic_DOG array with the values of acoustic_DOG at the common timestamps
+    # valid_acoustic_DOG[common_indices] = acoustic_DOG[indices_in_DOG]
+    #
+    #
+    # difference_data = slant_range - valid_acoustic_DOG
+    # RMS = np.sqrt(np.nanmean(difference_data**2))
+    # print('\n RMS{} s'.format(RMS))
+    #
+    #
+    # # Create the main figure and axes
+    # fig, axes = plt.subplots(2, 2, figsize=(15, 10), gridspec_kw={'width_ratios': [1, 4], 'height_ratios': [4, 1]}, sharey='row')
+    # label_text = f"Lat: {xyzR[1]}, Lon: {xyzR[0]}, elev: {xyzR[2]}"
+    # # Top plot (Acoustic vs SV GDEM Bermuda)
+    # axes[0, 1].scatter(time_DOG, acoustic_DOG, s=3, label='Acoustic DOG')
+    # axes[0, 1].scatter(time_GNSS, slant_range, s=1, label='GNSS SV Bermuda')
+    # axes[0, 1].set_ylabel('Time Travel (s)')
+    # axes[0, 1].set_xlabel('Time [h]')
+    # axes[0, 1].set_xlim(25, 41)
+    # axes[0, 1].text(25, max(acoustic_DOG), label_text)  # This puts the label at x=25 and y=max(acoustic_DOG)
+    # axes[0, 1].legend()
+    #
+    # # Bottom plot (Difference)
+    # axes[1, 1].scatter(time_GNSS, difference_data, s=1, label='Difference (slant_range - matched_acoustic_DOG)')
+    # axes[1, 1].set_xlabel('Time [h]')
+    # axes[1, 1].set_xlim(25, 41)
+    # axes[1, 1].text(25,10,'RMS = {} s'.format(RMS))
+    # axes[1, 1].legend()
+    #
+    # # Histogram
+    # axes[1, 0].hist(difference_data, orientation='horizontal', bins=30, alpha=0.5)
+    # axes[1, 0].set_xlabel('Frequency')
+    # axes[1, 0].set_title('Histogram')
+    #
+    #
+    # # Invert the x-axis to have bars going from right to left
+    # axes[1, 0].invert_xaxis()
+    #
+    # # Share y-axis for histogram and difference plot
+    # axes[1, 0].get_shared_y_axes().join(axes[1, 0], axes[1, 1])
+    #
+    # # Hide unnecessary axes
+    # axes[0, 0].axis('off')
+    #
+    # # Display the plots
+    # plt.tight_layout()
     # plt.show()
     #
     #
+    # # Calculer la statistique de Durbin-Watson
+    # dw_stat = durbin_watson(difference_data)
+    # print("Durbin-Watson statistic:", dw_stat)
+
+
+
     # initial_guess = [31.45, 291.32, 5225]
-    # result = minimize(objective_function, initial_guess, args=(lat, lon, elev, acoustic_DOG, time_GNSS, time_DOG))
+    # result = minimize(objective_function, initial_guess, args=(traj_reel, valid_acoustic_DOG, time_GNSS), method = 'CG')
     #
     # optimal_xyzR = result.x
-    # print("Optimal xyzR:", optimal_xyzR)
+    # print("\n Optimal xyzR:", optimal_xyzR)
