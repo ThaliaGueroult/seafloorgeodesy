@@ -7,53 +7,62 @@ from scipy.interpolate import CubicSpline
 
 data = np.loadtxt('../../dat/cast2.txt')
 
+# Charger les données (simulées ici pour l'exemple)
+data = np.loadtxt('../../dat/cast2.txt')
 depth = data[:, 0]
 sv = data[:, 1]
 
-# Trouver l'indice où la profondeur atteint sa valeur maximale (correspondant à la descente)
-indice_max_profondeur = depth.argmax()
+# Trouver l'indice où depth est maximale
+max_depth_index = np.argmax(depth)
+print(np.max(depth))
+import sys
+sys.exit()
+# Utiliser seulement les données jusqu'à max_depth_index
+depth_descending = depth[:max_depth_index + 1]
+sv_descending = sv[:max_depth_index + 1]
 
-# Extraire uniquement les données jusqu'à l'indice de la profondeur maximale (descente)
-depth = depth[:indice_max_profondeur + 1]
-sv = sv[:indice_max_profondeur + 1]
+# Générer les indices pour 5200 points régulièrement espacés (ou moins si le tableau est plus petit)
+num_points = 100
+indices = np.linspace(0, len(depth_descending) - 1, num_points, dtype=int)
 
-# Trier depth_descente par ordre croissant et obtenir les indices de tri
-indices_tri = np.argsort(depth)
+# Extraire les valeurs correspondantes de depth et sv
+depth_sampled = depth_descending[indices]
+sv_sampled = sv_descending[indices]
 
-# Trier depth_descente et sv_descente en utilisant les indices de tri
-depth_t = depth[indices_tri]
-sv_t = sv[indices_tri]
+# Tracer les données
+plt.figure()
+plt.plot(sv_sampled, depth_sampled)
+plt.xlabel('sv')
+plt.ylabel('depth')
+plt.title('Plot de sv et depth')
+plt.gca().invert_yaxis()  # Inverser l'axe des y si nécessaire
+plt.show()
 
-indices_uniques = np.unique(depth_t, return_index=True)[1]
-
-# Utiliser les indices uniques pour obtenir les profondeurs et vitesses correspondantes sans doublons
-depth_tu = depth_t[indices_uniques]
-sv_tu = sv_t[indices_uniques]
-
-# Appliquer un lissage à l'aide d'une moyenne mobile avec une fenêtre de taille 5
-window_size = 100
-sv_tul = np.convolve(sv_tu, np.ones(window_size)/window_size, mode='valid')
-
-# Créer un vecteur pour les profondeurs correspondant aux données lissées
-depth_tul = depth_tu[window_size//2:-(window_size//2)]
 
 
 def preprocess_data(cz, depth):
     z = np.linspace(0, 5200 + 50, int(1e6)+4784)
-    f = interp1d(depth, cz, 'quadratic', fill_value='extrapolate')
+    f = interp1d(depth, cz, 'cubic', fill_value='extrapolate')
     cz = f(z)
     depth = z
     gradc = np.diff(cz) / np.diff(depth)
     gradc = np.insert(gradc, 0, gradc[0])
     return cz, depth, gradc
 
-cz2,depth2,gradc2 = preprocess_data(sv_tu,depth_tu)
-plt.plot(cz2,depth2)
+cz,depth,gradc = preprocess_data(sv_sampled, depth_sampled)
+
+# Tracer les données
+plt.figure()
+plt.plot(cz, depth)
+plt.xlabel('sv')
+plt.ylabel('depth')
+plt.title('Plot de sv et depth')
+plt.gca().invert_yaxis()  # Inverser l'axe des y si nécessaire
 plt.show()
 
-np.savetxt('../../data/cz_cast2.txt',cz2)
-np.savetxt('../../data/depth_cast2.txt',depth2)
-np.savetxt('../../data/gradc_cast2.txt',gradc2)
+np.savetxt('../../data/cz_cast2_big.txt',cz)
+np.savetxt('../../data/depth_cast2_big.txt',depth)
+np.savetxt('../../data/gradc_cast2_big.txt',gradc)
 
 def ray_analytic(cz, depth, gradc, theta0):
     # Convert incident angle to radians
@@ -73,13 +82,33 @@ def ray_analytic(cz, depth, gradc, theta0):
     # Return the x-coordinates, depth values, and travel times
     return x, depth, t
 
+# Création du graphique
+plt.figure()
 
+# Boucle sur les angles de 0 à 90 degrés par incréments de 10
+for angle in range(0, 91, 10):
+    x, z, t = ray_analytic(cz, depth, gradc, angle)
+    plt.plot(x, z, label=f'Angle = {angle}°')
+
+# Inverser l'axe des z
+plt.gca().invert_yaxis()
+
+
+# Ajouter des étiquettes et une légende
+plt.xlabel('x')
+plt.ylabel('z')
+plt.legend()
+
+# Afficher le graphique
+plt.show()
+print(t)
 if __name__=='__main__':
     data = np.loadtxt('../../dat/cast2.txt')
 
 
-    # sv=np.loadtxt('../../data/sv_GDEM.txt')
-    # depthg=np.loadtxt('../../data/depth_GDEM.txt')
+
+    sv=np.loadtxt('../../data/SV/cz_cast2.txt')
+    depthg=np.loadtxt('../../data/SV/depth_cast2.txt')
     #
     # plt.scatter(gradc[-10000:-9500], depth[-10000:-9500] , label = "Avec interp")
     # # plt.scatter(sv,depthg, label = "Sans Interp")
