@@ -13,9 +13,7 @@ from scipy.optimize import minimize
 
 # Load the Effective Sound Velocity (ESV) matrix from a .mat file
 # Path to the folder containing the .mat file
-
-folder_path = '../esv/GDEM/global_table_interp'
-# folder_path = '../esv/castbermuda/global_table_interp'
+folder_path = '../esv/castbermuda/global_table_interp'
 matrix_file_path = os.path.join(folder_path, 'global_table_esv.mat')
 
 # Load the matrix data
@@ -122,29 +120,15 @@ def objective_function(xyzR, traj_reel, valid_acoustic_DOG, time_GNSS):
 
     return result
 
-def plot_unit_data(unit_number, svp):
-
-    if svp == 'castbermuda':
+def plot_unit_data(unit_number):
     # Initialize unit-specific configurations
-        xyzR_list = [
-            [31.46356056, 291.29859206, 5195.44983895],  # Unit 1
-            [31.46355227, 291.29859134, 5194.83969516],  # Unit 2
-            [31.46355873, 291.29858342, 5194.29039285],  # Unit 3
-            [31.46356886, 291.298585,   5195.10693215],   # Unit 4
-            [31.46356976, 291.29858848, 5190.53628934]   # Unit 5, average
-        ]
-
-    else:
-        # Initialize unit-specific configurations
-        xyzR_list = [
-            [31.46356973, 291.29859242, 5191.15569819],  # Unit 1
-            [31.46356189, 291.29859139, 5190.50899803],  # Unit 2
-            [31.46356844, 291.29858342, 5189.94309155],  # Unit 3
-            [31.46357847, 291.29858509, 5190.81298335],   # Unit 4
-            [31.46356976, 291.29858848, 5190.53628934]   # Unit 5, average
-        ]
-
-    #Add the offsets for the DOG synchronisation, computed manually by eye-shooting
+    xyzR_list = [
+        [31.46356973, 291.29859242, 5191.15569819],  # Unit 1
+        [31.46356189, 291.29859139, 5190.50899803],  # Unit 2
+        [31.46356844, 291.29858342, 5189.94309155],  # Unit 3
+        [31.46357847, 291.29858509, 5190.81298335],   # Unit 4
+        [31.46356976, 291.29858848, 5190.53628934]   # Unit 5, average
+    ]
     offsets = [68121, 68121, 68126, 68126, 68124]
 
     # Fetch unit-specific configurations
@@ -163,13 +147,12 @@ def plot_unit_data(unit_number, svp):
     time_GNSS = datetimes[condition_gnss] / 3600
     lat, lon, elev = data_unit['lat'].flatten()[condition_gnss], data_unit['lon'].flatten()[condition_gnss], data_unit['elev'].flatten()[condition_gnss]
 
-
     # Loading GNSS trajectory and computing slant_range time
     traj_reel = GNSS_trajectory(lat, lon, elev)
     slant_range, _, _ = calculate_travel_times_optimized(traj_reel, xyzR)
 
     # Load DOG data and apply conditions
-    data_DOG = sio.loadmat('../../data/DOG/DOG1-camp.mat')['tags'].astype(float)
+    data_DOG = sio.loadmat('../../data/DOG/DOG3-camp.mat')['tags'].astype(float)
     acoustic_DOG = np.unwrap(data_DOG[:, 1] / 1e9 * 2 * np.pi) / (2 * np.pi)
     time_DOG = (data_DOG[:, 0] + offset) / 3600
     condition_DOG = (time_DOG >= 25) & (time_DOG <= 40.9)
@@ -305,54 +288,31 @@ def plot_unit_data_elev(unit_number):
 
 if __name__ == '__main__':
 
-    # Exemple d'utilisation
-    # plot_unit_data(3, 'castbermuda')
-    # plot_unit_data_elev(3)
+    xyzR = [  31.46361704,  291.29957503, 5231.14237279] #GNSS4
+
+    data_transduceur = sio.loadmat('data_transduceur.mat') #+70
 
 
-    # # xyzR = [31.46, 291.31, 5275]
-    # #optimal guess for DOG1
-    # xyzR =   [  31.46356973,  291.29859242, 5191.15569819] #GNSS1
-    # xyzR = [  31.46356189,  291.29859139, 5190.50899803] #GNSS2
-    # xyzR = [  31.46356844,  291.29858342, 5189.94309155] #GNSS3
-    xyzR =  [  31.46355971,  291.29801543, 5188.72910821]
-    # xyzR = [  31.46357847,  291.29858509, 5190.81298335] #GNSS4
-    # xyzR = [  31.46356976,  291.29858848, 5190.53628934] # Average
-    #
-    # print('Unit3')
-    # data_unit = sio.loadmat('../../data/SwiftNav_Data/Unit1-camp_bis.mat') #+65
-    # data_unit = sio.loadmat('../../data/SwiftNav_Data/Unit2-camp_bis.mat') #+65
-    data_unit = sio.loadmat('../../data/SwiftNav_Data/Unit3-camp_bis.mat') #+70
-    # data_unit = sio.loadmat('../../data/SwiftNav_Data/Unit4-camp_bis.mat') #+70
-    # data_unit = sio.loadmat('../../data/SwiftNav_Data/Unit5-camp_bis.mat')  #+68
-    # # data_unit = sio.loadmat('../../data/SwiftNav_Data/GPStime_synchro/Unit1-camp_bis_GPStime_synchro.mat') #+65
+    datetimes = data_transduceur['times'].flatten()
+    condition_gnss = (datetimes >= 25) & (datetimes <= 38.5)
+    time_GNSS = datetimes[condition_gnss]
 
-    days = data_unit['days'].flatten() - 59015
-    times = data_unit['times'].flatten()
-    print(times)
-    datetimes = (days * 24 * 3600) + times
-    condition_gnss = (datetimes/3600 >= 25) & (datetimes/3600 <= 40.9)
-    time_GNSS = datetimes[condition_gnss]/3600
-
-    lat = data_unit['lat'].flatten()
-    lon = data_unit['lon'].flatten()
-    elev = data_unit['elev'].flatten()
+    x = data_transduceur['x'].flatten()
+    y = data_transduceur['y'].flatten()
+    z = data_transduceur['z'].flatten()
+    lat, lon, elev = ecef2geodetic(x, y, z)
     lat = lat[condition_gnss]
     lon = lon[condition_gnss]
     elev = elev[condition_gnss]
-
-    x,y,z=geodetic2ecef(lat,lon,elev)
-    x,y,z=x-6.4,y,z-15.24
-    lat,lon,elev=ecef2geodetic(x,y,z)
 
     traj_reel = GNSS_trajectory(lat, lon, elev)
     slant_range, slant_range_cst, difference = calculate_travel_times_optimized(traj_reel, xyzR)
     data_DOG = sio.loadmat('../../data/DOG/DOG1-camp.mat')
     data_DOG = data_DOG["tags"].astype(float)
     acoustic_DOG = np.unwrap(data_DOG[:,1]/1e9*2*np.pi)/(2*np.pi)
-    offset = 68126 # 66800 dog3 +-
+    offset =  68200
     time_DOG = (data_DOG[:,0]+ offset)/3600
-    condition_DOG = ((data_DOG[:,0] + offset)/3600 >= 25) & ((data_DOG[:,0] + offset)/3600 <= 40.9)
+    condition_DOG = ((data_DOG[:,0] + offset)/3600 >= 25) & ((data_DOG[:,0] + offset)/3600 <= 38.5)
     time_DOG = time_DOG[condition_DOG]
     acoustic_DOG = acoustic_DOG[condition_DOG]
 
@@ -412,9 +372,9 @@ if __name__ == '__main__':
     plt.tight_layout()
     plt.show()
 
-
-    initial_guess = [31.45, 291.32, 5225]
-    result = minimize(objective_function, initial_guess, args=(traj_reel, valid_acoustic_DOG, time_GNSS))
-
-    optimal_xyzR = result.x
-    print("\n Optimal xyzR:", optimal_xyzR)
+    # 
+    # initial_guess = [31.45, 291.32, 5225]
+    # result = minimize(objective_function, initial_guess, args=(traj_reel, valid_acoustic_DOG, time_GNSS))
+    #
+    # optimal_xyzR = result.x
+    # print("\n Optimal xyzR:", optimal_xyzR)
