@@ -52,6 +52,6 @@ def ray_analytic(cz, depth, theta0):
 
 
 if __name__=='__main__':
-    sv=np.loadtxt('../../data/sv_GDEM.txt')
-    depth=np.loadtxt('../../data/depth_GDEM.txt')
+    sv=np.loadtxt('../../data/SV/sv_GDEM.txt')
+    depth=np.loadtxt('../../data/SV/depth_GDEM.txt')
     x, z, t=ray_analytic(sv,depth,10)
