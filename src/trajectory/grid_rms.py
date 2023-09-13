@@ -7,9 +7,9 @@ import os
 from multiprocessing import Pool
 import time
 
-# Load the Earth-to-Space Volume (ESV) matrix from a .mat file
+# Load the Effective Sound Velocity (ESV) matrix from a .mat file
 # Path to the folder containing the .mat file
-folder_path = '../esv/esv_table_without_tol/global_table_interp'
+folder_path = '../esv/castbermuda/global_table_interp'
 matrix_file_path = os.path.join(folder_path, 'global_table_esv.mat')
 
 # Load the matrix data
@@ -19,7 +19,6 @@ data = sio.loadmat(matrix_file_path)
 dz_array = data['distance'].flatten()
 angle_array = data['angle'].flatten()
 esv_matrix = data['matrice']
-
 
 def create_grid_around(coord, extension=5.0):
     step = 1.0 # 1 mm
@@ -160,13 +159,15 @@ def calculate_differences(grid_points, lat, lon, elev, time_GNSS, time_DOG, acou
     return differences
 
 
+
 if __name__ == '__main__':
     # Vos données et fonctions préliminaires
-    xyzR =  [  31.46356396,  291.2985875,  5190.77000034] #GNSS1
-    # xyzR = [31.46355667,291.29858588, 5189.86379623] #GNSS2
-    # xyzR = [31.4635628, 291.29857683, 5189.23243428] #GNSS3
-    # xyzR = [31.46357218, 291.29857935, 5190.46271844] #GNSS4
-
+    xyzR =  [  31.46356056,  291.29859206, 5195.44983895] #GNSS1 +65
+    # xyzR =  [  31.46356189,  291.29859139, 5190.50899803] #GNSS2 +65
+    # xyzR = [  31.46356844,  291.29858342, 5189.94309155] #GNSS3 +70
+    # xyzR = [  31.46357847,  291.29858509, 5190.81298335] #GNSS4 +70
+    # xyzR = [  31.46356976,  291.29858848, 5190.53628934] # Average +68
+    print('Unit4')
 
     data_unit = sio.loadmat('../../data/SwiftNav_Data/Unit1-camp_bis.mat')
     days = data_unit['days'].flatten() - 59015
@@ -181,7 +182,7 @@ if __name__ == '__main__':
     data_DOG = sio.loadmat('../../data/DOG/DOG1-camp.mat')
     data_DOG = data_DOG["tags"].astype(float)
     acoustic_DOG = np.unwrap(data_DOG[:,1]/1e9*2*np.pi)/(2*np.pi)
-    offset = 68056+65.1
+    offset = 68121
     time_DOG = (data_DOG[:,0]+ offset)/3600
     condition_DOG = (time_DOG >= 25) & (time_DOG <= 40.9)
     time_DOG = time_DOG[condition_DOG]
@@ -238,5 +239,5 @@ if __name__ == '__main__':
 
     plt.tight_layout()
     plt.legend()
-    plt.savefig('RMS_1cm_1mm.png',dpi=500)
+    plt.savefig('RMS_10m_5m_antenna1.png',dpi=500)
     plt.show()
