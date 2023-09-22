@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # Charger les données depuis le fichier .mat
-dossier = 'GDEM/global_table_interp'
+dossier = 'castbermuda/global_table_interp'
 output_file_path = os.path.join(dossier, 'global_table_esv.mat')
 loaded_data = loadmat(output_file_path)
 
