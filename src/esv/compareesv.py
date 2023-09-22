@@ -2,8 +2,8 @@ import scipy.io as sio
 import matplotlib.pyplot as plt
 
 # Charger les fichiers .mat
-data1 = sio.loadmat('/home/thalia/Documents/seafloorgeodesy/src/esv/castbermuda/mat_interp/data_5220_step_angle_0_01.mat')
-data2 = sio.loadmat('/home/thalia/Documents/seafloorgeodesy/src/esv/GDEM/mat_interp/data_5220_step_angle_0_01.mat')
+data1 = sio.loadmat('/home/thalia/Documents/seafloorgeodesy/src/esv/castbermuda/mat_interp/data_5229_step_angle_0_01.mat')
+data2 = sio.loadmat('/home/thalia/Documents/seafloorgeodesy/src/esv/GDEM/mat_interp/data_5229_step_angle_0_01.mat')
 
 # Récupérer les données des fichiers
 angles1 = data1['elevation angle (deg)'].flatten()
