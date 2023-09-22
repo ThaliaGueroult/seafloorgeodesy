@@ -22,27 +22,6 @@ def load_and_process_data(path):
     elev = data['elev'].flatten()
     return datetimes, x, y, z, lon, lat, elev
 
-paths = [
-    '../../data/SwiftNav_Data/Unit1-camp_bis.mat',
-    '../../data/SwiftNav_Data/Unit2-camp_bis.mat',
-    '../../data/SwiftNav_Data/Unit3-camp_bis.mat',
-    '../../data/SwiftNav_Data/Unit4-camp_bis.mat'
-]
-
-all_datetimes, all_xs, all_ys, all_zs, all_lons, all_lats, all_elevs = [], [], [], [], [], [], []
-
-for path in paths:
-    datetimes, x, y, z, lon, lat, elev = load_and_process_data(path)
-    all_datetimes.append(datetimes)
-    all_xs.append(x)
-    all_ys.append(y)
-    all_zs.append(z)
-    all_lons.append(lon)
-    all_lats.append(lat)
-    all_elevs.append(elev)
-
-print(lon)
-
 def lonlath_to_ecef(lonlath):
     cl, sl = np.cos(lonlath[...,0]), np.sin(lonlath[...,0])
     cp, sp = np.cos(lonlath[...,1]), np.sin(lonlath[...,1])
@@ -64,6 +43,35 @@ def lonlath_to_ned(lonlath0, lonlath):
     m[2] = [ cp,     0., -sp]
     x = np.einsum("ij,...j->...i", m, x - x0)
     return x
+
+def ned_to_lonlath(lonlath0, xyz):
+    """ Passage de ned en lonlath par rapport à la position lonlath0 """
+    xyz = np.atleast_2d(xyz)
+    x0 = lonlath_to_ecef(lonlath0)
+
+    assert xyz.ndim == 2
+
+    # Matrice de passage du repère NED au repère ECEF
+    m = np.empty((3,3), np.float64)
+    cp = math.cos(lonlath0[1])
+    sp = math.sin(lonlath0[1])
+    cl = math.cos(lonlath0[0])
+    sl = math.sin(lonlath0[0])
+
+    m[0, 0] = -sp*cl
+    m[0, 1] = -sl
+    m[0, 2]= -cp * cl
+    m[1, 0] = -sp * sl
+    m[1, 1] =  cl
+    m[1, 2] = -cp * sl
+    m[2, 0] =  cp
+    m[2, 1] =  0.
+    m[2, 2] = -sp
+
+    x = np.einsum("ij,...j->...i", m, xyz) + x0
+    llh = ecef_to_lonlath(x)
+
+    return llh
 
 def matrix_orthonormalization(C):
     # Produits scalaires
@@ -102,14 +110,34 @@ def lonlat_to_ned_coords(all_lons, all_lats, all_elevs, lonlath0):
         all_ned_coords.append(ned_coords)
     return all_ned_coords
 
-lonlath0 = np.array([[all_lons[3][0], all_lats[3][0], all_elevs[3][0]]])
-all_ned = lonlat_to_ned_coords(all_lons, all_lats, all_elevs, lonlath0)
 
+paths = [
+    '../../data/SwiftNav_Data/Unit1-camp_bis.mat',
+    '../../data/SwiftNav_Data/Unit2-camp_bis.mat',
+    '../../data/SwiftNav_Data/Unit3-camp_bis.mat',
+    '../../data/SwiftNav_Data/Unit4-camp_bis.mat'
+]
+
+all_datetimes, all_xs, all_ys, all_zs, all_lons, all_lats, all_elevs = [], [], [], [], [], [], []
+
+for path in paths:
+    datetimes, x, y, z, lon, lat, elev = load_and_process_data(path)
+    all_datetimes.append(datetimes)
+    all_xs.append(x)
+    all_ys.append(y)
+    all_zs.append(z)
+    all_lons.append(lon)
+    all_lats.append(lat)
+    all_elevs.append(elev)
+
+lonlath0 = np.array([[all_lons[3][0], all_lats[3][0], all_elevs[3][0]]])
+
+all_ned = lonlat_to_ned_coords(all_lons, all_lats, all_elevs, lonlath0)
 bras_de_levier = [
-    [0, 0, 0],
-    [-0.272, 0.030, -0.041],
-    [-0.293, -0.337, -0.079],
-    [0.296, 0.296, -0.039]
+    [10.1, 0, 0],
+    [10.1, -4.8, 0],
+    [0, -7.1, 0],
+    [0, 0, 0]
 ]
 
 all_ned_body = []
@@ -117,6 +145,8 @@ all_ned_body = []
 for ned_coords, levier in zip(all_ned, bras_de_levier):
     coords_body = ned_coords + levier  # Ajout des bras de levier
     all_ned_body.append(coords_body)
+
+print(all_ned_body)
 
 # Calcul de l'orientation
 
@@ -144,10 +174,10 @@ all_ned = lonlat_to_ned_coords(all_lons, all_lats, all_elevs, lonlath0)
 
 # Coordonnées dans le repère body à l'aide des bras de levier
 bras_de_levier = [
-    [0, 0, 0],        # Unit 1
-    [-0.272, 0.030, -0.041],  # Unit 2
-    [-0.293, -0.337, -0.079],  # Unit 3
-    [0.296, 0.296, -0.039]   # Unit 4
+    [10.1, 0, 0],
+    [10.1, -4.8, 0],
+    [0, -7.1, 0],
+    [0, 0, 0]
 ]
 
 all_ned_body = []
@@ -185,20 +215,19 @@ for t in range(len(all_datetimes[0])):
 
 all_angles = [matrix_to_Tait_Bryan(R) for R in all_rotations]
 
-roll_angles = [angles[0] for angles in all_angles]
+roll_angles = [angles[2] for angles in all_angles]
 pitch_angles = [angles[1] for angles in all_angles]
-yaw_angles = [angles[2] for angles in all_angles]
+yaw_angles = [angles[0] for angles in all_angles]
 
 
 all_datetimes = all_datetimes[0]
-print(len(all_datetimes))
 
 plt.figure(figsize=(15, 10))
 
 # Roulis
 plt.subplot(3, 1, 1)
-plt.plot(all_datetimes, np.degrees(roll_angles), label="Roulis", color='r')
-plt.ylabel('Angle (radians)')
+plt.scatter(all_datetimes, np.degrees(roll_angles), label="Roulis", color='r')
+plt.ylabel('Angle (degrés)')
 plt.title('Roulis vs. Temps')
 plt.xlim(25,40.9)
 plt.legend()
@@ -206,8 +235,8 @@ plt.grid(True)
 
 # Tangage
 plt.subplot(3, 1, 2)
-plt.plot(all_datetimes, np.degrees(pitch_angles), label="Tangage", color='g')
-plt.ylabel('Angle (radians)')
+plt.scatter(all_datetimes, np.degrees(pitch_angles), label="Tangage", color='g')
+plt.ylabel('Angle (degrés)')
 plt.title('Tangage vs. Temps')
 plt.xlim(25,40.9)
 plt.legend()
@@ -215,9 +244,9 @@ plt.grid(True)
 
 # Lacet
 plt.subplot(3, 1, 3)
-plt.plot(all_datetimes, np.degrees(yaw_angles), label="Lacet", color='b')
+plt.scatter(all_datetimes, np.degrees(yaw_angles), label="Lacet", color='b')
 plt.xlabel('Temps (heure)')
-plt.ylabel('Angle (radians)')
+plt.ylabel('Angle (degrés)')
 plt.title('Lacet vs. Temps')
 plt.xlim(25,40.9)
 plt.legend()
@@ -229,7 +258,7 @@ plt.show()
 
 # Bras de levier du transducteur par rapport à l'antenne 4 dans le repère Body
 levier_transducteur = np.array([-6.40, 2.3, 15.24])
-
+all_datetimes
 # Positions ECEF de l'antenne 4
 positions_antenne4_ecef = np.column_stack((all_xs[3], all_ys[3], all_zs[3]))
 
@@ -294,5 +323,5 @@ data_dict = {
     'elev': elevs_transducteur
 }
 
-# Sauvegarde des données dans un fichier .mat
-savemat('../trajectory/data_transduceur.mat', data_dict)
+# # Sauvegarde des données dans un fichier .mat
+# savemat('../trajectory/data_transduceur.mat', data_dict)
