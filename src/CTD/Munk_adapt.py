@@ -2,57 +2,60 @@ import numpy as np
 from scipy import optimize
 import matplotlib.pyplot as plt
 
-def sound_velocity(z, z1, B, C1):
-    '''This function computes the Munk profile of sound Velocity
-    This is from DOI : 10.1121/1.1914492, Munk 1979
-    z : depth (positive)
-    z1 : axis with minimum velocity
-    B : scale depth
-    C1 :
-    eps : perturbation coefficient
-    eta :  dimensionless distance beneath axis
-    '''
-    eps = 1/2*B*0.0114e-3 #gamma_a=0.0114 km^-1 is the adiabatic velocity gradient
-    eta = 2*(z-z1)/B
-    return C1*(1.0+eps*(eta-1+np.exp(-eta)))
+def compute_sound_velocity(z, z1, B, C1):
+    """
+    Compute the Munk profile of sound velocity based on DOI: 10.1121/1.1914492, Munk (1979).
+    Parameters:
+    z (float): Depth (positive).
+    z1 (float): Axis with minimum velocity.
+    B (float): Scale depth.
+    C1 (float): Coefficient for the equation.
 
-# Load Sound velocity profile to match
-data_file2 = "../../data/AE2008_CTD/AE2008_PostDeployment_Cast2_deriv.cnv"
-data2 = np.loadtxt(data_file2,skiprows=348)
-depths_cast2 = data2[:,0]
-depths_cast2 = depths_cast2[:np.argmax(depths_cast2)]
-sv_delgrosso_cast2 = data2[:,21][:len(depths_cast2)]
+    Returns:
+    float: Calculated sound velocity based on Munk profile.
+    """
+    eps = 1 / 2 * B * 0.0114e-3  # gamma_a=0.0114 km^-1 is the adiabatic velocity gradient
+    eta = 2 * (z - z1) / B
+    return C1 * (1.0 + eps * (eta - 1 + np.exp(-eta)))
 
-def objective(x, z, c_real):
-    z1, B1, C1 = x
-    c_calculated = sound_velocity(z, z1, B1, C1)
-    z1_calculated = z[np.argmin(c_calculated)]
-    return ((c_calculated - c_real) ** 2).sum() + ((z1_calculated - z1) ** 2)
+# Load sound velocity profile data
+data_file_path = "../../data/AE2008_CTD/AE2008_PostDeployment_Cast2_deriv.cnv"
+data = np.loadtxt(data_file_path, skiprows=348)
+depth_values = data[:, 0]
+depth_values = depth_values[:np.argmax(depth_values)]
+sv_delgrosso = data[:, 21][:len(depth_values)]
 
-# Valeurs de départ pour les coefficients z1, B1 et C1
-x0 = [1300, 1300, 1500]
+def objective_function(params, z, c_real):
+    """
+    Objective function to minimize the sum of squared differences
+    between calculated and real sound velocity.
+    """
+    z1, B1, C1 = params
+    c_calculated = compute_sound_velocity(z, z1, B1, C1)
+    return ((c_calculated - c_real) ** 2).sum()
 
-# Minimisation de la fonction objectif
-res = optimize.minimize(objective, x0, args=(depths_cast2, sv_delgrosso_cast2))
+# Initial guesses for coefficients z1, B1, and C1
+initial_guess = [1300, 1300, 1500]
 
-# Coefficients optimaux
-z1_opt, B1_opt, C1_opt = res.x
+# Minimize the objective function
+result = optimize.minimize(objective_function, initial_guess, args=(depth_values, sv_delgrosso))
 
-# Célérité calculée avec les coefficients optimaux
-c_opt = sound_velocity(depths_cast2, z1_opt, B1_opt, C1_opt)
+# Optimal coefficients
+z1_optimal, B1_optimal, C1_optimal = result.x
 
-# Affichage des résultats
-print("Coefficients optimaux : z1 = {}, B1 = {}, C1 = {}".format(z1_opt, B1_opt, C1_opt))
-print("Célérité réelle : {}".format(sv_delgrosso_cast2))
-print("Célérité calculée avec les coefficients optimaux : {}".format(c_opt))
+# Sound velocity calculated with optimal coefficients
+calculated_velocity = compute_sound_velocity(depth_values, z1_optimal, B1_optimal, C1_optimal)
 
+# Print and plot results
+print(f"Optimal coefficients: z1 = {z1_optimal}, B1 = {B1_optimal}, C1 = {C1_optimal}")
+print(f"Actual sound velocity: {sv_delgrosso}")
+print(f"Calculated sound velocity with optimal coefficients: {calculated_velocity}")
 
 fig, ax = plt.subplots(figsize=(16, 10))
-ax.plot(sv_delgrosso_cast2,depths_cast2,label='Bermuda, Princeton 2020')
-ax.plot(c_opt, depths_cast2,label='Munk Model, 1979')
-# ax.figtext("Coefficients optimaux : z1 = {}, B1 = {}, C1 = {}".format(z1_opt, B1_opt, C1_opt))
+ax.plot(sv_delgrosso, depth_values, label='Bermuda, Princeton 2020')
+ax.plot(calculated_velocity, depth_values, label='Munk Model, 1979')
 ax.set_xlabel('Sound Velocity (m/s)')
 ax.set_ylabel('Depth (m)')
 ax.legend()
-plt.title('Comparison of Sound Velocity Profile')
+plt.title('Comparison of Sound Velocity Profiles')
 plt.show()
