@@ -73,7 +73,6 @@ def compute_rotation_matrix(X, Y, Z):
 
 # Exemple pour un ensemble de X, Y, Z
 R = compute_rotation_matrix(X_direction[0], Y_direction[0], Z_direction[0])
-print(R)
 
 def extract_euler_angles(R):
     theta_x = np.arctan2(R[2,1], R[2,2])
@@ -123,7 +122,7 @@ plt.title("Theta_z au fil du temps")
 plt.xlabel("Temps")
 plt.ylabel("Theta_z (radians)")
 
-plt.tight_layout()  # Ajuste l'espacement entre les subplots pour éviter le chevauchement
+plt.tight_layout()
 plt.show()
 
 #
