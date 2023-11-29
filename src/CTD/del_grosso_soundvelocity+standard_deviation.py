@@ -51,28 +51,26 @@ def std_delgrosso(S, T, P, stdS, stdT, stdP):
     return (sigma_c)[0,:]
 
 
-if __name__ == "__main__":
 
-    map = scipy.io.loadmat('../../data/GDEM/geomap_GDEMV.mat')
+if __name__ == "__main__":
+    map_data = scipy.io.loadmat('../../data/GDEM/geomap_GDEMV.mat')
     data = scipy.io.loadmat('../../data/GDEM/Jun_GDEMV.mat')
     lat = 31.44
     lon = -68.693
 
-    temp, sal, std_temp, std_sal = extract_gdem(lat, lon, map, data)
-    depth=map['depth']
-    print(std_temp)
+    temp, sal, std_temp, std_sal = extract_gdem(lat, lon, map_data, data)
+    depth = map_data['depth']
 
-    #convert depth into pressure in dB and compute soundspeed with Del Grosso equation
-    pressure=swpressure(depth,lat)
-    sv=soundspeed_delgrosso(sal,temp,pressure[:,0])
-    std_sv=std_delgrosso(sal, temp, pressure, std_sal, std_temp, 0)
-    print(std_sv)
+    # Convert depth into pressure in dB and compute sound speed with Del Grosso equation
+    pressure = swpressure(depth, lat)
+    sv = soundspeed_delgrosso(sal, temp, pressure[:, 0])
+    std_sv = std_delgrosso(sal, temp, pressure, std_sal, std_temp, 0)
 
-
+    # Plotting the results
     plt.plot(sv, depth)
     plt.errorbar(sv, depth, xerr=std_sv, fmt='o', color='red', ecolor='gray', capsize=3)
-    plt.xlabel('Soundspeed (m/s)')
+    plt.xlabel('Sound Speed (m/s)')
     plt.ylabel('Depth')
-    plt.title('Soundspeed Profile')
+    plt.title('Sound Speed Profile')
     plt.grid()
     plt.show()
