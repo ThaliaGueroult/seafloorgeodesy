@@ -1,12 +1,13 @@
 #!/usr/bin/python3
-
-
 import numpy as np
 import scipy.io as sio
 import matplotlib.pyplot as plt
+from scipy.signal import find_peaks
+import datetime
+import matplotlib.dates as mdates
 
 # Chargement des données
-data_unit = sio.loadmat('../../data/SwiftNav_Data/Unit1-camp_bis.mat')
+data_unit = sio.loadmat('../../data/SwiftNav_Data/Unit3-camp_bis.mat')
 data_DOG = sio.loadmat('../../data/DOG/DOG1-camp.mat')
 
 # Manipulation temporelle pour GNSS
@@ -25,9 +26,9 @@ z = data_unit['z'].flatten()[condition_gnss]
 # Manipulation temporelle pour DOG
 data_DOG = data_DOG["tags"].astype(float)
 acoustic_DOG = np.unwrap(data_DOG[:,1]/1e9*2*np.pi)/(2*np.pi)
-offset = 68056+65.1
+offset = 68056+65
 time_DOG = (data_DOG[:,0]+ offset)/3600
-condition_DOG = (time_DOG >= 25) & (time_DOG <= 40.9)
+condition_DOG = (time_DOG >= 25) & (time_DOG <= 37)
 time_DOG = time_DOG[condition_DOG]
 acoustic_DOG = acoustic_DOG[condition_DOG]
 
@@ -50,18 +51,13 @@ align_unit1_DOG = np.vstack((time_GNSS, acoustic_DOG_aligned)).T
 print(align_unit1_GNSS)
 print(align_unit1_DOG)
 
-# Enregistrer les matrices alignées
-output_filepath = '../../data/aligned_data.mat'
-sio.savemat(output_filepath, {
-    'align_unit1_GNSS': align_unit1_GNSS,
-    'align_unit1_DOG': align_unit1_DOG
-})
-
-print(f"Data saved to {output_filepath}")
-
 # Calculer la distance basée sur le temps de parcours
 speed = 1515  # vitesse en m/s
 distance = acoustic_DOG_aligned * speed
+
+base_time = datetime.datetime(2000, 1, 1)  # La date de base n'a pas d'importance puisque nous ne nous soucions que de l'heure
+time_GNSS = [base_time + datetime.timedelta(hours=t) for t in time_GNSS]
+
 
 # Création des graphiques
 plt.figure(figsize=(15, 15))
@@ -112,6 +108,29 @@ plt.grid(True)
 plt.legend()
 # Ajouter de l'espace entre les sous-graphiques
 plt.subplots_adjust(hspace=10)
+
+plt.tight_layout()
+plt.show()
+
+# Création des graphiques
+plt.figure(figsize=(15, 15))
+# Tracer z par rapport au temps
+plt.subplot(2, 1, 1)
+plt.plot(time_GNSS, z, label='Z')
+plt.title('Z vs Time')
+plt.xlabel('Time (hours)')
+plt.ylabel('Z Value')
+plt.grid(True)
+plt.legend()
+
+# Tracer les données DOG alignées
+plt.subplot(2,1, 2)
+plt.plot(time_GNSS, acoustic_DOG_aligned, label='Acoustic DOG Aligned', color='r')
+plt.title('Acoustic DOG Aligned vs Time')
+plt.xlabel('Time (hours)')
+plt.ylabel('Acoustic DOG Value')
+plt.grid(True)
+plt.legend()
 
 plt.tight_layout()
 plt.show()
