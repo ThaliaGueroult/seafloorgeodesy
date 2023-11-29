@@ -62,9 +62,8 @@ def get_elevation_from_ascii(file_path, target_lon, target_lat):
         if elevation == nodata_value:
             return None
         return elevation
-
-lat = 31.47356719
-lon = 291.28858831 -360
+lat = 31.46358041
+lon = -68.70136571
 file_path = "gebco_bermuda.asc"
 lons, lats, data = read_ascii(file_path)
 plot_gebco(lons, lats, data, lon, lat)
