@@ -26,6 +26,8 @@ for file in files:
     data = sio.loadmat(file)
     days = data['days'].flatten()
     times = data['times'].flatten()
+    print(times)
+    print(len(times))
     combined_times = days * 24 * 3600 + times  # Convert days to seconds and add to times
     all_combined_times.extend(combined_times)
 

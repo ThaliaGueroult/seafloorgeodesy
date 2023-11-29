@@ -2,7 +2,7 @@ import numpy as np
 import scipy.io as sio
 import matplotlib.pyplot as plt
 
-data = sio.loadmat('../../data/SwiftNav_Data/Unit1-camp.mat')
+data = sio.loadmat('../../data/SwiftNav_Data/rawdata/Unit1-camp.mat')
 
 def filter_outliers(lat, lon, elev, time):
     '''
