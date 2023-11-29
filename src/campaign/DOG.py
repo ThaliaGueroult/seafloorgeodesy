@@ -2,6 +2,8 @@ import numpy as np
 import scipy.io as sio
 import matplotlib.pyplot as plt
 
+''' This code loads the 4 four and plot them versus the PPS time'''
+
 data_DOG1 = sio.loadmat('../../data/DOG/DOG1-camp.mat')
 data_DOG2 = sio.loadmat('../../data/DOG/DOG2-camp.mat')
 data_DOG3 = sio.loadmat('../../data/DOG/DOG3-camp.mat')
@@ -37,6 +39,7 @@ def plot_data(ax, tags, tags_transformed, color):
     ax.axvline(x=78000, color=vline_color, linestyle='--')
     ax.set_xlabel('PPS count (s)')
     ax.set_ylabel('Slant Range Time (s)')
+    ax.set_ylim(0,9)
 
 plot_data(axs[0, 0], tags_DOG1, tags_DOG1_transformed, colors[0])
 axs[0, 0].set_title('DOG1')
