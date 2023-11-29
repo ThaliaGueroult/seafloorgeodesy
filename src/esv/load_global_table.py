@@ -58,7 +58,7 @@ cbar.set_ticklabels(selected_labels)
 
 plt.xlabel('Angle (°)')
 plt.ylabel('Effective sound velocity (m/s)')
-plt.title('Effective Sound velocity table look-up for Bermuda cast')
+plt.title('Effective Sound velocity table look-up for GDEM model')
 
 plt.tight_layout()
 plt.show()
