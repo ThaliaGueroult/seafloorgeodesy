@@ -7,6 +7,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from tqdm import tqdm
 import scipy
 import pymap3d as pm
+import matplotlib.gridspec as gridspec
 
 def load_and_process_data(path):
     """Charge et traite les données d'une unité."""
@@ -30,18 +31,18 @@ def get_bounds(A1_filtered, A2_filtered, A3_filtered, A4_filtered, i):
     uncertainty = 1.0  # 1 meter uncertainty
 
     x_bounds = [
-        min([A1_filtered[1][i] + 16.6, A2_filtered[1][i] + 16.6, A3_filtered[1][i] + 6.40, A4_filtered[1][i] + 6.40]) - uncertainty,
-        max([A1_filtered[1][i] + 16.6, A2_filtered[1][i] + 16.6, A3_filtered[1][i] + 6.40, A4_filtered[1][i] + 6.40]) + uncertainty
+        min([A1_filtered[1][i] - 16.6, A2_filtered[1][i] - 16.6, A3_filtered[1][i] - 6.40, A4_filtered[1][i] - 6.40]) - uncertainty,
+        max([A1_filtered[1][i] - 16.6, A2_filtered[1][i] - 16.6, A3_filtered[1][i] - 6.40, A4_filtered[1][i] - 6.40]) + uncertainty
     ]
 
     y_bounds = [
-        min([A1_filtered[2][i] - 2.46, A2_filtered[2][i] - 7.39, A3_filtered[2][i] - 9.57, A4_filtered[2][i] - 2.46]) - uncertainty,
-        max([A1_filtered[2][i] - 2.46, A2_filtered[2][i] - 7.39, A3_filtered[2][i] - 9.57, A4_filtered[2][i] - 2.46]) + uncertainty
+        min([A1_filtered[2][i] + 2.46, A2_filtered[2][i] + 7.39, A3_filtered[2][i] + 9.57, A4_filtered[2][i] + 2.46]) - uncertainty,
+        max([A1_filtered[2][i] + 2.46, A2_filtered[2][i] + 7.39, A3_filtered[2][i] + 9.57, A4_filtered[2][i] + 2.46]) + uncertainty
     ]
 
     z_bounds = [
-        min([A1_filtered[3][i] + 15.24, A2_filtered[3][i] + 15.24, A3_filtered[3][i] + 15.24, A4_filtered[3][i] + 15.24]) - uncertainty,
-        max([A1_filtered[3][i] + 15.24, A2_filtered[3][i] + 15.24, A3_filtered[3][i] + 15.24, A4_filtered[3][i] + 15.24]) + uncertainty
+        min([A1_filtered[3][i] - 15.24, A2_filtered[3][i] - 15.24, A3_filtered[3][i] - 15.24, A4_filtered[3][i] - 15.24]) - uncertainty,
+        max([A1_filtered[3][i] - 15.24, A2_filtered[3][i] - 15.24, A3_filtered[3][i] - 15.24, A4_filtered[3][i] - 15.24]) + uncertainty
     ]
 
     return ([x_bounds[0], y_bounds[0], z_bounds[0]], [x_bounds[1], y_bounds[1], z_bounds[1]])
@@ -60,12 +61,50 @@ A1 = load_and_process_data(paths[0])
 A2 = load_and_process_data(paths[1])
 A3 = load_and_process_data(paths[2])
 A4 = load_and_process_data(paths[3])
+
 common_times = np.intersect1d(A1[0], np.intersect1d(A2[0], np.intersect1d(A3[0], A4[0])))
+
 
 A1_filtered = filter_data_by_common_times(A1, common_times)
 A2_filtered = filter_data_by_common_times(A2, common_times)
 A3_filtered = filter_data_by_common_times(A3, common_times)
 A4_filtered = filter_data_by_common_times(A4, common_times)
+
+import numpy as np
+
+# Chargez les données pour chaque antenne
+A1 = load_and_process_data(paths[0])
+A2 = load_and_process_data(paths[1])
+A3 = load_and_process_data(paths[2])
+A4 = load_and_process_data(paths[3])
+
+# Trouvez les temps communs à toutes les antennes
+common_times = np.intersect1d(A1[0], np.intersect1d(A2[0], np.intersect1d(A3[0], A4[0])))
+
+# Filtrez chaque antenne pour n'inclure que les temps communs
+A1_filtered = filter_data_by_common_times(A1, common_times)
+A2_filtered = filter_data_by_common_times(A2, common_times)
+A3_filtered = filter_data_by_common_times(A3, common_times)
+A4_filtered = filter_data_by_common_times(A4, common_times)
+
+def filter_all_antennas_based_on_A4(A4, A1, A2, A3, threshold_multiplier=4):
+    """
+    Filtrer les données de toutes les antennes basées sur les valeurs de A4 par rapport aux autres antennes de référence.
+    """
+    references = [A1, A2, A3]
+    avg_values = [np.mean(np.stack([ref[i] for ref in references]), axis=0) for i in range(1, 4)]
+    std_dev = [np.std(np.stack([ref[i] for ref in references]), axis=0) for i in range(1, 4)]
+    threshold = [threshold_multiplier * sd for sd in std_dev]
+
+    # Trouver les indices valides pour A4
+    good_indices = np.all([(np.abs(A4[i] - avg_values[i-1]) <= threshold[i-1]) for i in range(1, 4)], axis=0)
+
+    # Retourner les antennes filtrées en utilisant les indices valides
+    return tuple([(antenna[0][good_indices], antenna[1][good_indices], antenna[2][good_indices], antenna[3][good_indices]) for antenna in [A4, A1, A2, A3]])
+
+# Filtrez toutes les antennes
+A4_filtered, A1_filtered, A2_filtered, A3_filtered = filter_all_antennas_based_on_A4(A4_filtered, A1_filtered, A2_filtered, A3_filtered)
+common_times = A4_filtered[0]
 
 # Liste des datetime que vous souhaitez traiter
 datetime_list = []
@@ -99,32 +138,78 @@ da3 = np.sqrt(6.40**2 + 9.57**2 + 15.24**2)
 da4 = np.sqrt(6.40**2 + 2.46**2 + 15.24**2)
 da = np.array([da1, da2, da3, da4])
 
-# Create a 3D plot for the positions
-fig_positions = plt.figure()
-ax = fig_positions.add_subplot(111, projection='3d')
 
 estimated_positions = np.zeros((len(common_times), 3))
 residuals_list = np.zeros(len(common_times))
-
+residuals1 = np.zeros(len(common_times))
+residuals2 = np.zeros(len(common_times))
+residuals3 = np.zeros(len(common_times))
+residuals4 = np.zeros(len(common_times))
 for i in tqdm(range(len(common_times)), desc="Processing datetimes"):
-
+# for i in tqdm(range(10000), desc="Processing datetimes"):
     xa = np.array([A1_filtered[1][i], A2_filtered[1][i], A3_filtered[1][i], A4_filtered[1][i]])
     ya = np.array([A1_filtered[2][i], A2_filtered[2][i], A3_filtered[2][i], A4_filtered[2][i]])
     za = np.array([A1_filtered[3][i], A2_filtered[3][i], A3_filtered[3][i], A4_filtered[3][i]])
 
     bounds = get_bounds(A1_filtered, A2_filtered, A3_filtered, A4_filtered, i)
-    x = np.array(bounds[0])
+    x_value = A3_filtered[1][i] + (-6.40)
+    y_value = A3_filtered[2][i] + 9.57
+    z_value = A3_filtered[3][i] + (-15.24)
+    x = np.array([x_value, y_value, z_value])
     result = least_squares(error_function, x, args=(xa, ya, za, da))
 
     # print('\nda',da)
     residuals = error_function(result.x, xa, ya, za, da)
-
+    # print(residuals)
     sum_of_squares = np.sum(np.square(residuals))
     mean_square_error = sum_of_squares / len(residuals)
     rmse = np.sqrt(mean_square_error)
-    residuals_list[i] = np.sum(residuals ** 2)
-
+    residuals_list[i] = np.sum(residuals)
+    residuals1[i] = residuals[0]
+    residuals2[i] = residuals[1]
+    residuals3[i] = residuals[2]
+    residuals4[i] = residuals[3]
     estimated_positions[i, :] = result.x
+
+colors = ['b', 'r', 'g', 'm']  # Par exemple: bleu, rouge, vert, magenta
+labels = ['Antenna 1', 'Antenna 2', 'Antenna 3', 'Antenna 4']
+residuals_all = [residuals1, residuals2, residuals3, residuals4]  # Supposons que residuals[2] et residuals[3] sont vos autres résidus
+
+
+fig = plt.figure(figsize=(15, 10))
+
+# Residual plot
+ax_resid = plt.subplot2grid((2, 3), (0, 0), rowspan=2)
+for i, residuals in enumerate(residuals_all):
+    ax_resid.scatter(common_times, residuals, color=colors[i], s=2, label=labels[i], alpha=0.6)
+ax_resid.set_title('Residual value over time')
+ax_resid.set_xlabel('Time')
+ax_resid.set_ylabel('Residual Value (m)')
+ax_resid.legend()
+ax_resid.set_ylim(-0.6,0.6)
+ax_resid.set_xlim(25,37)
+ax_resid.grid(True)
+
+# Histograms
+hist_positions = [(0,1), (0,2), (1,1), (1,2)]
+for i, residuals in enumerate(residuals_all):
+    ax_hist = plt.subplot2grid((2, 3), hist_positions[i])
+    threshold = np.percentile(residuals, 95)
+    filtered_residuals = residuals[residuals < threshold]
+    ax_hist.hist(filtered_residuals, facecolor=colors[i], bins=30, edgecolor=colors[i], alpha=0.5, label=labels[i], linewidth=0.7)
+    ax_hist.set_title('Histogram of the residual, ' + labels[i])
+    ax_hist.set_xlabel('Residual Value (m)')
+    ax_hist.set_xlim(-0.6, 0.6)
+    ax_hist.grid(True)
+
+plt.tight_layout()
+plt.show()
+
+
+# Histogramme des résidus
+# threshold = np.percentile(residuals_list, 90)
+# filtered_residuals = residuals_list[residuals_list < threshold]
+
 
 
 # 1. Filtrez les résidus:
@@ -147,27 +232,31 @@ random_index = np.random.randint(0, len(common_times) - 10)
 fig_random_3D = plt.figure()
 ax_random_3D = fig_random_3D.add_subplot(111, projection='3d')
 colors = ['b', 'g', 'r', 'm']
+label = ['Antenna 1', 'Antenna 2', 'Antenna 3', 'Antenna 4']
 
 for j in range(random_index, random_index + 10):
-    ax_random_3D.scatter(lon_est[j], lat_est[j], elev_est[j], c='k', marker='x')
     for idx, A in enumerate([A1_filtered, A2_filtered, A3_filtered, A4_filtered]):
         lat, lon, elev = pm.ecef2geodetic(A[1][j], A[2][j], A[3][j])
         ax_random_3D.scatter(lon, lat, elev, c=colors[idx], marker='o')
+    ax_random_3D.scatter(lon_est[j], lat_est[j], elev_est[j], c='k', marker='x')
 
 # Adding axis labels and title
 ax_random_3D.set_xlabel('Longitude')
 ax_random_3D.set_ylabel('Latitude')
 ax_random_3D.set_zlabel('Elevation')
 ax_random_3D.set_title(f"Time: {common_times[random_index]}")
+ax_random_3D.legend()
+
 
 # 3. Plot lat, lon, elev of the estimated position in 2D
 fig_2D, ax_2D = plt.subplots()
 sc = ax_2D.scatter(lon_est, lat_est, c=elev_est, cmap='viridis')
 for idx, A in enumerate([A1_filtered, A2_filtered, A3_filtered, A4_filtered]):
     lat, lon, _ = pm.ecef2geodetic(A[1], A[2], A[3])
-    ax_2D.scatter(lon, lat, c=colors[idx], marker='o')
+    ax_2D.scatter(lon, lat, c=colors[idx], marker='o', label = label[idx])
 ax_2D.set_xlabel('Longitude')
 ax_2D.set_ylabel('Latitude')
+ax_2D.legend()
 cbar = plt.colorbar(sc)
 cbar.set_label('Elevation')
 
@@ -196,7 +285,7 @@ data_to_save = {
 from scipy.io import savemat
 
 # Spécifiez le chemin d'accès et le nom de votre fichier .mat
-filename = "transducer_positions.mat"
+# filename = "transducer_positions.mat"
 
 # Sauvegardez le dictionnaire dans un fichier .mat
 savemat(filename, data_to_save)
