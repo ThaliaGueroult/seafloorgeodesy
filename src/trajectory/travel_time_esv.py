@@ -155,7 +155,7 @@ def plot_unit_data(unit_number, svp):
     slant_range, slant_range_cst , _ = calculate_travel_times_optimized(traj_reel, xyzR)
 
     # Load DOG data and apply conditions
-    data_DOG = sio.loadmat('../../data/DOG/DOG1-camp.mat')['tags'].astype(float)
+    data_DOG = sio.loadmat('../../data/DOG/DOG3-camp.mat')['tags'].astype(float)
     acoustic_DOG = np.unwrap(data_DOG[:, 1] / 1e9 * 2 * np.pi) / (2 * np.pi)
     time_DOG = (data_DOG[:, 0] + offset) / 3600
     condition_DOG = (time_DOG >= 25) & (time_DOG <= 37)
@@ -261,7 +261,7 @@ def plot_unit_data_trans(method):
     slant_range, slant_range_cst, _ = calculate_travel_times_optimized(traj_reel, xyzR)
 
     # Load DOG data and apply conditions
-    data_DOG = sio.loadmat('../../data/DOG/DOG1-camp.mat')['tags'].astype(float)
+    data_DOG = sio.loadmat('../../data/DOG/DOG3-camp.mat')['tags'].astype(float)
     acoustic_DOG = np.unwrap(data_DOG[:, 1] / 1e9 * 2 * np.pi) / (2 * np.pi)
     time_DOG = (data_DOG[:, 0] + offset) / 3600
     condition_DOG = (time_DOG >= 25) & (time_DOG <= 37)
@@ -344,7 +344,7 @@ def optimize_plot_trans(filename):
     # Loading GNSS trajectory and computing slant_range time
     traj_reel = GNSS_trajectory(lat, lon, elev)
     # Load DOG data and apply conditions
-    data_DOG = sio.loadmat('../../data/DOG/DOG1-camp.mat')['tags'].astype(float)
+    data_DOG = sio.loadmat('../../data/DOG/DOG3-camp.mat')['tags'].astype(float)
     acoustic_DOG = np.unwrap(data_DOG[:, 1] / 1e9 * 2 * np.pi) / (2 * np.pi)
     time_DOG = (data_DOG[:, 0] + offset) / 3600
     condition_DOG = (time_DOG >= 25) & (time_DOG <= 37)
@@ -443,7 +443,7 @@ def plot_unit_data_cst(unit_number, sv):
     _ , slant_range, _ = calculate_travel_times_optimized(traj_reel, xyzR, sv)
 
     # Load DOG data and apply conditions
-    data_DOG = sio.loadmat('../../data/DOG/DOG1-camp.mat')['tags'].astype(float)
+    data_DOG = sio.loadmat('../../data/DOG/DOG3-camp.mat')['tags'].astype(float)
     acoustic_DOG = np.unwrap(data_DOG[:, 1] / 1e9 * 2 * np.pi) / (2 * np.pi)
     time_DOG = (data_DOG[:, 0] + offset) / 3600
     condition_DOG = (time_DOG >= 25) & (time_DOG <= 37)
@@ -539,19 +539,19 @@ if __name__ == '__main__':
     angle_array = data['angle'].flatten()
     esv_matrix = data['matrice']
 
-    # Chemin vers le dossier contenant les fichiers .mat
-    leviers_variations_path = "levier_variations"
-
-    # Liste de tous les fichiers .mat dans le dossier
-    mat_files = [f for f in os.listdir(leviers_variations_path) if f.endswith('.mat')]
-
-    for mat_file in mat_files:
-        # Chemin complet vers le fichier .mat actuel
-        full_path = os.path.join(leviers_variations_path, mat_file)
-
-        # Appel à la fonction
-        results = optimize_plot_trans(full_path)
-        print(results)
+    # # Chemin vers le dossier contenant les fichiers .mat
+    # leviers_variations_path = "levier_variations"
+    #
+    # # Liste de tous les fichiers .mat dans le dossier
+    # mat_files = [f for f in os.listdir(leviers_variations_path) if f.endswith('.mat')]
+    #
+    # for mat_file in mat_files:
+    #     # Chemin complet vers le fichier .mat actuel
+    #     full_path = os.path.join(leviers_variations_path, mat_file)
+    #
+    #     # Appel à la fonction
+    #     results = optimize_plot_trans(full_path)
+    #     print(results)
 
     # # Exemple d'utilisation
     # for i in range (1,6):
@@ -559,7 +559,7 @@ if __name__ == '__main__':
         # xyzR, traj_reel, valid_acoustic_DOG, time_GNSS, difference_data = plot_unit_data_cst(i,1516)
     # xyzR, traj_reel, valid_acoustic_DOG, time_GNSS, difference_data = plot_unit_data_trans('attitude_mean')
     # xyzR, traj_reel, valid_acoustic_DOG, time_GNSS, difference_data = plot_unit_data_cst(4,1516)
-    # xyzR, traj_reel, valid_acoustic_DOG, time_GNSS, difference_data = plot_unit_data(5, 'GDEM')
+    xyzR, traj_reel, valid_acoustic_DOG, time_GNSS, difference_data = plot_unit_data(5, 'GDEM')
     # # xyzR, traj_reel, valid_acoustic_DOG, time_GNSS, difference_data = plot_unit_data(5, 'castbermuda')
     # print(cost_function(xyzR, traj_reel, valid_acoustic_DOG, time_GNSS))
     # result = least_squares(cost_function, xyzR, args=(traj_reel, valid_acoustic_DOG, time_GNSS), xtol = 1e-12)

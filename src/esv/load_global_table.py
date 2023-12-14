@@ -20,11 +20,6 @@ print(loaded_data['distance'])
 print("\nMatrice:")
 print(loaded_data['matrice'])
 
-
-import matplotlib.pyplot as plt
-import os
-from scipy.io import loadmat
-
 # Charger les données depuis le fichier .mat
 dossier = 'GDEM/global_table_interp'
 output_file_path = os.path.join(dossier, 'global_table_esv.mat')
